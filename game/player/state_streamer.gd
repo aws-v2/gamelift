@@ -271,7 +271,13 @@ func _start_ffmpeg():
 func _stream_video_frame():
 	# Capture the viewport
 	var viewport = get_viewport()
-	var img = viewport.get_texture().get_image()
+	var texture = viewport.get_texture()
+	if not texture:
+		return
+		
+	var img = texture.get_image()
+	if not img:
+		return
 	
 	# Resize if necessary to match FFmpeg expectation
 	if img.get_size() != Vector2i(1280, 720):

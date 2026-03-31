@@ -92,9 +92,13 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 	if err != nil {
 		return err
 	}
-	// if s.debug {
-		go s.launchLocalDebug(game, mode)
-	// }
+	err = s.natsClient.Publish(subj, data)
+	if err != nil {
+		return err
+	}
+
+	// Local Launch for Debug!
+	go s.launchLocalDebug(game, mode)
 
 	return nil
 }
@@ -131,16 +135,26 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	os.Chmod(binPath, 0755)
 
 	// Execute in Terminal
-	args := []string{"--headless"}
+	args := []string{}
+	var cmdPrefix []string
+	
+	// Use xvfb-run only for offscreen rendering in video mode on Linux
 	if mode == domain.StreamingModeVideo {
 		args = append(args, "--mode=webrtc")
+		// NOTE: Requires 'sudo apt install xvfb' on Debian/Ubuntu
+		cmdPrefix = []string{"xvfb-run", "--auto-servernum", "--server-args='-screen 0 1280x720x24'"}
 	} else {
-		args = append(args, "--mode=state_sync")
+		args = append(args, "--headless", "--mode=state_sync")
 	}
 
 	// Correctly resolve binary path relative to tempDir
-	terminalCmd := fmt.Sprintf("cd %s && ./%s %s; read -p 'Press enter to close...'",
-		tempDir, manifest.HeadlessBin, strings.Join(args, " "))
+	exec_cmd := fmt.Sprintf("./%s %s", manifest.HeadlessBin, strings.Join(args, " "))
+	if len(cmdPrefix) > 0 {
+		exec_cmd = fmt.Sprintf("%s %s", strings.Join(cmdPrefix, " "), exec_cmd)
+	}
+
+	terminalCmd := fmt.Sprintf("cd %s && %s; read -p 'Press enter to close...'",
+		tempDir, exec_cmd)
 	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", terminalCmd)
 
 	if err := cmd.Start(); err != nil {
