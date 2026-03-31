@@ -15,7 +15,7 @@ type GameRepository interface {
 
 // ProvisioningService defines the contract for on-demand game startup.
 type ProvisioningService interface {
-	ProvisionGame(gameID int) error
+	ProvisionGame(gameID int, mode domain.StreamingMode) error
 }
 
 // AuthService defines the contract for authentication operations.

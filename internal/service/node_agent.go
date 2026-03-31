@@ -50,9 +50,10 @@ func (a *NodeAgent) Start() {
 
 	_, err := a.natsClient.Subscribe(subj, func(msg *nats.Msg) {
 		var payload struct {
-			GameID     int    `json:"game_id"`
-			StorageARN string `json:"storage_arn"`
-			TargetNode string `json:"target_node"`
+			GameID        int                  `json:"game_id"`
+			StorageARN    string               `json:"storage_arn"`
+			TargetNode    string               `json:"target_node"`
+			StreamingMode domain.StreamingMode `json:"streaming_mode"`
 		}
 
 		if err := json.Unmarshal(msg.Data, &payload); err != nil {
@@ -72,9 +73,9 @@ func (a *NodeAgent) Start() {
 		// 2. Unzip & Setup Env
 	// 3. Launch Process (Godot Headless)
 	if a.debug {
-		go a.initializeGameDebug(payload.GameID, payload.StorageARN)
+		go a.initializeGameDebug(payload.GameID, payload.StorageARN, payload.StreamingMode)
 	} else {
-		go a.initializeGame(payload.GameID, payload.StorageARN)
+		go a.initializeGame(payload.GameID, payload.StorageARN, payload.StreamingMode)
 	}
 })
 
@@ -83,7 +84,7 @@ func (a *NodeAgent) Start() {
 	}
 }
 
-func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string) {
+func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode domain.StreamingMode) {
 	log.Printf("[NodeAgent %s][DEBUG] STARTING LOCAL EXECUTION for Game %d...", a.NodeID, gameID)
 
 	// 1. Prepare Paths
@@ -128,13 +129,27 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string) {
 	os.Chmod(binPath, 0755)
 
 	// 6. Execute!
-	cmd := exec.Command(binPath, "--headless")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	args := []string{"--headless"}
+	if mode == domain.StreamingModeVideo {
+		args = append(args, "--mode=webrtc")
+	} else {
+		args = append(args, "--mode=state_sync")
+	}
+
+	// Launch in a new terminal for visibility in debug mode
+	terminalCmd := fmt.Sprintf("cd %s && ./%s %s; read -p 'Press enter to close...'", 
+		tempDir, filepath.Base(binPath), strings.Join(args, " "))
+	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", terminalCmd)
 	
 	if err := cmd.Start(); err != nil {
-		log.Printf("[NodeAgent %s][DEBUG] Failed to start Godot: %v", a.NodeID, err)
-		return
+		log.Printf("[NodeAgent %s][DEBUG] Failed to start gnome-terminal: %v (falling back to direct exec)", a.NodeID, err)
+		cmd = exec.Command(binPath, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			log.Printf("[NodeAgent %s][DEBUG] Failed to start Godot: %v", a.NodeID, err)
+			return
+		}
 	}
 
 	log.Printf("[NodeAgent %s][DEBUG] Process started with PID %d", a.NodeID, cmd.Process.Pid)
@@ -181,7 +196,7 @@ func (a *NodeAgent) notifyReady(gameID int, port int) {
 	log.Printf("[NodeAgent %s] Game %d is now LIVE and READY!", a.NodeID, gameID)
 }
 
-func (a *NodeAgent) initializeGame(gameID int, storageARN string) {
+func (a *NodeAgent) initializeGame(gameID int, storageARN string, mode domain.StreamingMode) {
 	log.Printf("[NodeAgent %s] STARTING INITIALIZATION for Game %d...", a.NodeID, gameID)
 	
 	// Simulation of cold start delay

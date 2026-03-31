@@ -9,14 +9,22 @@ const (
 	GameStatusActive       GameStatus = "active"
 )
 
+type StreamingMode string
+
+const (
+	StreamingModeState StreamingMode = "state_sync"
+	StreamingModeVideo StreamingMode = "video_streaming"
+)
+
 type Game struct {
 	ID             int        `json:"id" gorm:"primaryKey"`
 	Name           string     `json:"game_name" gorm:"not null"`
 	FolderLocation string     `json:"game_folder_location"`
 	VMID           string     `json:"vm_id"`
 	ARN            string     `json:"arn" gorm:"uniqueIndex"`
-	Status         GameStatus `json:"status"`
-	StorageARN     string     `json:"storage_arn,omitempty"`
+	Status         GameStatus    `json:"status"`
+	StreamingMode  StreamingMode `json:"streaming_mode"`
+	StorageARN     string        `json:"storage_arn,omitempty"`
 	Manifest       string     `json:"manifest,omitempty" gorm:"type:text"`
 }
 

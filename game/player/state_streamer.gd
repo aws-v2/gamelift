@@ -9,6 +9,16 @@ var jwt_token := "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VySWQiOiJiMmMzZDRlN
 
 var last_update_time := 0.0
 var update_interval := 0.05 # 20Hz
+var mode := "webrtc" # Options: state_sync, webrtc
+
+# --- WebRTC & Video ---
+var rtc_peer := WebRTCPeerConnection.new()
+var signaling_socket := WebSocketPeer.new()
+var signaling_url := "ws://localhost:8080/api/v1/webrtc/signaling?session_id=player_1"
+
+var fifo_path := "/tmp/godot_pipe"
+var ffmpeg_pid := -1
+var stream_file : FileAccess
 
 # --- Reconnection control ---
 var reconnect_timer := 0.0
@@ -20,8 +30,17 @@ var is_connecting := false
 @onready var camera: Camera3D = player.get_node("Camera3D")
 
 func _ready():
-	print("[StateStreamer] Connecting to ", url)
+	_parse_cmd_args()
+	print("[StateStreamer] Initializing in mode: ", mode)
+	
+	# Always connect to the input/state socket
+	print("[StateStreamer] Connecting to input hub: ", url)
 	_try_connect()
+
+	if mode == "webrtc":
+		print("[StateStreamer] Connecting to signaling server: ", signaling_url)
+		_connect_signaling()
+		_start_ffmpeg()
 
 func _process(delta):
 	socket.poll()
@@ -39,11 +58,19 @@ func _process(delta):
 			var msg = packet.get_string_from_utf8()
 			_handle_incoming_message(msg)
 
-		# Send player state at 20Hz
+		# Send data based on mode
 		last_update_time += delta
 		if last_update_time >= update_interval:
 			last_update_time = 0.0
-			send_player_state()
+			if mode == "state_sync":
+				send_player_state()
+			elif mode == "webrtc":
+				_stream_video_frame()
+
+	# Poll signaling socket if in webrtc mode
+	if mode == "webrtc":
+		signaling_socket.poll()
+		_handle_signaling()
 
 	elif state == WebSocketPeer.STATE_CLOSED:
 		reconnect_timer += delta
@@ -169,6 +196,98 @@ func send_player_state():
 	else:
 		printerr("[StateStreamer] Send error: ", err)
 
+
+func _parse_cmd_args():
+	for arg in OS.get_cmdline_args():
+		if arg.begins_with("--mode="):
+			mode = arg.split("=")[1]
+			return
+
+func _connect_signaling():
+	signaling_socket.handshake_headers = ["Authorization: Bearer " + jwt_token]
+	signaling_socket.connect_to_url(signaling_url)
+	
+	# Initialize RTC Peer
+	rtc_peer.ice_candidate_created.connect(_on_ice_candidate)
+	rtc_peer.session_description_created.connect(_on_description_created)
+
+func _on_ice_candidate(mid: String, index: int, candidate: String):
+	var msg = {
+		"type": "candidate",
+		"mid": mid,
+		"index": index,
+		"candidate": candidate
+	}
+	signaling_socket.send_text(JSON.stringify(msg))
+
+func _on_description_created(type: String, sdp: String):
+	rtc_peer.set_local_description(type, sdp)
+	var msg = {"type": type, "sdp": sdp}
+	signaling_socket.send_text(JSON.stringify(msg))
+
+func _handle_signaling():
+	var state = signaling_socket.get_ready_state()
+	if state == WebSocketPeer.STATE_OPEN:
+		while signaling_socket.get_available_packet_count():
+			var packet = signaling_socket.get_packet()
+			var msg_string = packet.get_string_from_utf8()
+			var json = JSON.new()
+			if json.parse(msg_string) == OK:
+				var data = json.get_data()
+				if data.has("type"):
+					if data.type == "offer":
+						rtc_peer.set_remote_description("offer", data.sdp)
+						rtc_peer.create_answer()
+					elif data.type == "answer":
+						rtc_peer.set_remote_description("answer", data.sdp)
+					elif data.type == "candidate":
+						rtc_peer.add_ice_candidate(data.mid, data.index, data.candidate)
+
+func _start_ffmpeg():
+	# 1. Create a FIFO (Named Pipe)
+	OS.execute("mkfifo", [fifo_path])
+	
+	# 2. Launch FFmpeg in the background to consume from the pipe
+	# and stream to a target. Here we'll just log or save for demonstration.
+	# For actual relay, this would push to a socket or WebRTC relay.
+	var args := [
+		"-f", "rawvideo",
+		"-pixel_format", "rgb24",
+		"-video_size", "1280x720",
+		"-i", fifo_path,
+		"-vcodec", "libx264",
+		"-preset", "ultrafast",
+		"-tune", "zerolatency",
+		"-f", "mpegts",
+		"udp://127.0.0.1:1234" # Example destination
+	]
+	
+	ffmpeg_pid = OS.create_process("ffmpeg", args)
+	print("[StateStreamer] FFmpeg started with PID: ", ffmpeg_pid)
+	
+	# 3. Open the pipe for writing
+	stream_file = FileAccess.open(fifo_path, FileAccess.WRITE)
+
+func _stream_video_frame():
+	# Capture the viewport
+	var viewport = get_viewport()
+	var img = viewport.get_texture().get_image()
+	
+	# Resize if necessary to match FFmpeg expectation
+	if img.get_size() != Vector2i(1280, 720):
+		img.resize(1280, 720)
+	
+	if stream_file:
+		stream_file.store_buffer(img.get_data())
+		# Flush or allow to buffer? FIFO will block if full.
+
+func _notification(what):
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_PREDELETE:
+		if ffmpeg_pid != -1:
+			OS.kill(ffmpeg_pid)
+		if stream_file:
+			stream_file.close()
+		OS.execute("rm", [fifo_path])
 
 func get_current_animation() -> String:
 	if not player.is_on_floor():

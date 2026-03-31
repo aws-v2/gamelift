@@ -22,6 +22,7 @@ func NewRouter(
 	authHandler := handler.NewAuthHandler(authSvc)
 	gameHandler := handler.NewGameHandler(gameSvc, natsClient, provisioningSvc, storage)
 	wsHandler := handler.NewWebSocketHandler(hub)
+	webrtcHandler := handler.NewWebRTCSignalingHandler()
 
 	// API Group with prefix
 	api := r.Group("/api/v1/gamelift")
@@ -46,6 +47,9 @@ func NewRouter(
 	// Public WebSocket for state-streaming
 	r.GET("/api/v1/ws", wsHandler.Handle) // Direct match for Gateway requests
 	r.GET("/ws", wsHandler.Handle)        // Legacy / fallback match
+
+	// WebRTC Signaling
+	r.GET("/api/v1/webrtc/signaling", webrtcHandler.HandleSignaling)
 
 	return r
 }

@@ -140,7 +140,8 @@ func (h *GameHandler) GetManifest(c *gin.Context) {
 // PlayGame handles the on-demand provisioning request.
 func (h *GameHandler) PlayGame(c *gin.Context) {
 	var req struct {
-		GameID int `json:"game_id" binding:"required"`
+		GameID int                  `json:"game_id" binding:"required"`
+		Mode   domain.StreamingMode `json:"streaming_mode"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -148,7 +149,12 @@ func (h *GameHandler) PlayGame(c *gin.Context) {
 		return
 	}
 
-	err := h.provisioningSvc.ProvisionGame(req.GameID)
+	// Default to state_sync if not provided
+	if req.Mode == "" {
+		req.Mode = domain.StreamingModeState
+	}
+
+	err := h.provisioningSvc.ProvisionGame(req.GameID, req.Mode)
 	if err != nil {
 		log.Printf("[GameHandler] Provisioning failed for game %d: %v", req.GameID, err)
 		response.SendError(c, http.StatusConflict, err.Error())

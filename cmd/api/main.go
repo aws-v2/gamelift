@@ -160,7 +160,7 @@ func main() {
 	go s3Listener.Start()
 
 	// Initialize Provisioning Logic
-	provisioningSvc := service.NewProvisioningService(gameSvc, natsClient)
+	provisioningSvc := service.NewProvisioningService(gameSvc, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath)
 	nodeAgent := service.NewNodeAgent("local-dev-node", gameSvc, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath)
 	go nodeAgent.Start()
 
