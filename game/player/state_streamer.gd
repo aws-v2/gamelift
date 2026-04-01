@@ -30,6 +30,10 @@ var is_connecting := false
 @onready var camera: Camera3D = player.get_node("Camera3D")
 
 func _ready():
+	# Check for WebRTC extension
+	if not rtc_peer:
+		push_error("[StateStreamer] WebRTC extension not found! WebRTCPeerConnection failed to initialize.")
+	
 	_parse_cmd_args()
 	print("[StateStreamer] Initializing in mode: ", mode)
 	
@@ -284,7 +288,11 @@ func _stream_video_frame():
 		img.resize(1280, 720)
 	
 	if stream_file:
-		stream_file.store_buffer(img.get_data())
+		var data = img.get_data()
+		if Time.get_ticks_msec() < 10000: # Log only for first 10 seconds to avoid spam
+			# print("[StateStreamer] Piped frame, size: ", data.size())
+			pass
+		stream_file.store_buffer(data)
 		# Flush or allow to buffer? FIFO will block if full.
 
 func _notification(what):

@@ -140,7 +140,7 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	
 	// Use xvfb-run only for offscreen rendering in video mode on Linux
 	if mode == domain.StreamingModeVideo {
-		args = append(args, "--mode=webrtc")
+		args = append(args, "--mode=webrtc", "--rendering-method", "gl_compatibility")
 		// NOTE: Requires 'sudo apt install xvfb' on Debian/Ubuntu
 		cmdPrefix = []string{"xvfb-run", "--auto-servernum", "--server-args='-screen 0 1280x720x24'"}
 	} else {
