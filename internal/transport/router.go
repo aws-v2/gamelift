@@ -19,6 +19,17 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.Default()
 
+	// CORS is handled by the API Gateway. 
+	// Disabling local CORS to prevent duplicate Access-Control-Allow-Origin headers.
+	/*
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:5173"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
+	config.AllowCredentials = true
+	r.Use(cors.New(config))
+	*/
+
 	authHandler := handler.NewAuthHandler(authSvc)
 	gameHandler := handler.NewGameHandler(gameSvc, natsClient, provisioningSvc, storage)
 	wsHandler := handler.NewWebSocketHandler(hub)

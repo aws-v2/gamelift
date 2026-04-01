@@ -21,6 +21,7 @@ type Game struct {
 	Name           string     `json:"game_name" gorm:"not null"`
 	FolderLocation string     `json:"game_folder_location"`
 	VMID           string     `json:"vm_id"`
+	UserID         string     `json:"user_id"`
 	ARN            string     `json:"arn" gorm:"uniqueIndex"`
 	Status         GameStatus    `json:"status"`
 	StreamingMode  StreamingMode `json:"streaming_mode"`

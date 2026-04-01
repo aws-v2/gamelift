@@ -37,6 +37,7 @@ func (r *PostgresGameRepository) RegisterGame(name, vmID, accountID string) (*do
 	g := domain.Game{
 		Name:   name,
 		VMID:   vmID,
+		UserID: accountID,
 		ARN:    arn,
 		Status: domain.GameStatusActive,
 	}
@@ -60,6 +61,7 @@ func (r *PostgresGameRepository) InitUpload(name, vmID, accountID string) (*doma
 	g := domain.Game{
 		Name:   name,
 		VMID:   vmID,
+		UserID: accountID,
 		Status: domain.GameStatusPending,
 	}
 

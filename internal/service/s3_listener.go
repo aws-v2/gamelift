@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"backend/internal/domain"
@@ -136,12 +137,19 @@ func (l *S3Listener) Start() {
 				ActionType: "provision",
 			}
 			ec2Payload := map[string]interface{}{
-				"game_id":      payload.GameID,
-				"storage_arn":  payload.StorageARN,
-				"headless_bin": manifest.HeadlessBin,
-				"game_name":    game.Name,
-				"backend_url":  l.backendURL,
-				"profile":      "gamelift",
+				"profile": "gamelift",
+				"specs": map[string]int{
+					"cpu": 2,
+					"ram": 4096,
+				},
+				"parameters": map[string]string{
+					"game_id":      strconv.Itoa(payload.GameID),
+					"storage_arn":  payload.StorageARN,
+					"headless_bin": manifest.HeadlessBin,
+					"game_name":    game.Name,
+					"backend_url":  l.backendURL,
+				},
+				"user_id": game.UserID,
 			}
 			ec2Data, _ := json.Marshal(ec2Payload)
 			l.natsClient.Publish(ec2Subj, ec2Data)

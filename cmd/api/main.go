@@ -139,6 +139,7 @@ func main() {
 			Name:           "Demo Game",
 			FolderLocation: "media",
 			VMID:           "test-vm-1",
+			UserID:         "system",
 			ARN:            "arn:serw:game:eu-north-1:system:game/1",
 			Status:         domain.GameStatusActive,
 		})
@@ -160,7 +161,7 @@ func main() {
 	go s3Listener.Start()
 
 	// Initialize Provisioning Logic
-	provisioningSvc := service.NewProvisioningService(gameSvc, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath)
+	provisioningSvc := service.NewProvisioningService(gameSvc, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.PublicURL)
 	nodeAgent := service.NewNodeAgent("local-dev-node", gameSvc, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath)
 	go nodeAgent.Start()
 

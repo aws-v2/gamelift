@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -22,6 +23,7 @@ type ProvisioningService struct {
 	storage    *storage.MinIOAdapter
 	debug      bool
 	godotPath  string
+	backendURL string
 }
 
 func NewProvisioningService(
@@ -30,6 +32,7 @@ func NewProvisioningService(
 	storage *storage.MinIOAdapter,
 	debug bool,
 	godotPath string,
+	backendURL string,
 ) *ProvisioningService {
 	return &ProvisioningService{
 		gameRepo:   gameRepo,
@@ -37,6 +40,7 @@ func NewProvisioningService(
 		storage:    storage,
 		debug:      debug,
 		godotPath:  godotPath,
+		backendURL: backendURL,
 	}
 }
 
@@ -64,25 +68,33 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 		targetNode = "default-worker-node"
 	}
 
-	// 3. Publish Provisioning Event
+	// 3. Publish Provisioning Event to EC2 Service
 	subj := messaging.Subject{
 		Env:        "dev",
-		Service:    "provisioning",
+		Service:    "ec2",
 		Version:    "v1",
-		Domain:     "game",
+		Domain:     "vm",
 		ActionType: "provision",
 	}
 
-	payload := struct {
-		GameID        int                  `json:"game_id"`
-		StorageARN    string               `json:"storage_arn"`
-		TargetNode    string               `json:"target_node"`
-		StreamingMode domain.StreamingMode `json:"streaming_mode"`
-	}{
-		GameID:        game.ID,
-		StorageARN:    game.StorageARN,
-		TargetNode:    targetNode,
-		StreamingMode: mode,
+	var manifest domain.GameManifest
+	json.Unmarshal([]byte(game.Manifest), &manifest)
+
+	payload := map[string]interface{}{
+		"profile": "gamelift",
+		"specs": map[string]int{
+			"cpu": 2,
+			"ram": 4096,
+		},
+		"parameters": map[string]string{
+			"game_id":        strconv.Itoa(game.ID),
+			"storage_arn":    game.StorageARN,
+			"headless_bin":   manifest.HeadlessBin,
+			"game_name":      game.Name,
+			"backend_url":    s.backendURL,
+			"streaming_mode": string(mode),
+		},
+		"user_id": game.UserID,
 	}
 
 	data, _ := json.Marshal(payload)
@@ -92,13 +104,6 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 	if err != nil {
 		return err
 	}
-	err = s.natsClient.Publish(subj, data)
-	if err != nil {
-		return err
-	}
-
-	// Local Launch for Debug!
-	go s.launchLocalDebug(game, mode)
 
 	return nil
 }
