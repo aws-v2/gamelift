@@ -1,17 +1,20 @@
-package service
+package application
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"go.uber.org/zap"
 )
 
-type TranscodeService struct{}
+type TranscodeService struct {
+	logger *zap.SugaredLogger
+}
 
-func NewTranscodeService() *TranscodeService {
-	return &TranscodeService{}
+func NewTranscodeService(logger *zap.SugaredLogger) *TranscodeService {
+	return &TranscodeService{logger: logger}
 }
 
 func (s *TranscodeService) Transcode(mp4Path string) error {
@@ -19,7 +22,7 @@ func (s *TranscodeService) Transcode(mp4Path string) error {
 	ivfPath := filepath.Join(dir, "game.ivf")
 	oggPath := filepath.Join(dir, "game.ogg")
 
-	log.Printf("[Transcoder] Starting background transcoding for %s", mp4Path)
+	s.logger.Infow("Starting background transcoding", "path", mp4Path)
 
 	// Ensure the directory exists
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -52,10 +55,10 @@ func (s *TranscodeService) Transcode(mp4Path string) error {
 		oggPath,
 	)
 	if err := audioCmd.Run(); err != nil {
-		log.Printf("[Transcoder] Audio transcode failed (likely no audio track): %v", err)
+		s.logger.Warnw("Audio transcode failed (likely no audio track)", "error", err)
 		// We don't return error here, as video might still be usable
 	}
 
-	log.Printf("[Transcoder] Successfully transcoded %s to IVF/OGG", mp4Path)
+	s.logger.Infow("Successfully transcoded", "path", mp4Path)
 	return nil
 }

@@ -1,4 +1,4 @@
-package service
+package application
 
 import (
 	"archive/zip"
@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"backend/internal/domain"
 )
 
@@ -23,10 +24,13 @@ func (s *ValidationService) ValidateStructure(extractDir string, manifest domain
 		}
 	}
 
+	// Derive PCK path from the HeadlessBin (e.g. server/game.x86_64 -> server/game.pck)
+	pckPath := strings.TrimSuffix(manifest.HeadlessBin, filepath.Ext(manifest.HeadlessBin)) + ".pck"
+
 	requiredFiles := []string{
 		manifest.HeadlessBin,
 		manifest.MainScene,
-		"server/game.pck",
+		pckPath,
 	}
 	for _, file := range requiredFiles {
 		if _, err := os.Stat(filepath.Join(extractDir, file)); err != nil {

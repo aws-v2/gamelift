@@ -1,21 +1,24 @@
-package transport
+package http
 
 import (
 	"backend/internal/infrastructure/storage"
 	"backend/internal/interfaces"
 	"backend/internal/messaging"
-	"backend/internal/transport/handler"
+	"backend/internal/transport/http/handlers"
+	"backend/internal/transport/websocket"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func NewRouter(
 	authSvc interfaces.AuthService, 
 	gameSvc interfaces.GameRepository, 
-	hub *handler.Hub, 
+	hub *websocket.Hub, 
 	natsClient *messaging.NatsClient, 
 	provisioningSvc interfaces.ProvisioningService,
 	storage *storage.MinIOAdapter,
+	logger *zap.SugaredLogger,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -30,10 +33,10 @@ func NewRouter(
 	r.Use(cors.New(config))
 	*/
 
-	authHandler := handler.NewAuthHandler(authSvc)
-	gameHandler := handler.NewGameHandler(gameSvc, natsClient, provisioningSvc, storage)
-	wsHandler := handler.NewWebSocketHandler(hub)
-	webrtcHandler := handler.NewWebRTCSignalingHandler()
+	authHandler := handlers.NewAuthHandler(authSvc, logger)
+	gameHandler := handlers.NewGameHandler(gameSvc, natsClient, provisioningSvc, storage, logger)
+	wsHandler := websocket.NewWebSocketHandler(hub)
+	webrtcHandler := handlers.NewWebRTCSignalingHandler(logger)
 
 	// API Group with prefix
 	api := r.Group("/api/v1/gamelift")

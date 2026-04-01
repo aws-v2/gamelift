@@ -1,9 +1,8 @@
-package service
+package application
 
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"backend/internal/domain"
 	"backend/internal/interfaces"
@@ -15,24 +14,30 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 type ProvisioningService struct {
 	gameRepo   interfaces.GameRepository
-	natsClient *messaging.NatsClient
+	natsClient interfaces.MessagingClient
 	storage    *storage.MinIOAdapter
 	debug      bool
 	godotPath  string
 	backendURL string
+	appEnv     string
+	logger     *zap.SugaredLogger
 }
 
 func NewProvisioningService(
 	gameRepo interfaces.GameRepository,
-	natsClient *messaging.NatsClient,
+	natsClient interfaces.MessagingClient,
 	storage *storage.MinIOAdapter,
 	debug bool,
 	godotPath string,
 	backendURL string,
+	appEnv string,
+	logger *zap.SugaredLogger,
 ) *ProvisioningService {
 	return &ProvisioningService{
 		gameRepo:   gameRepo,
@@ -41,6 +46,8 @@ func NewProvisioningService(
 		debug:      debug,
 		godotPath:  godotPath,
 		backendURL: backendURL,
+		appEnv:     appEnv,
+		logger:     logger,
 	}
 }
 
@@ -51,10 +58,10 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 		return err
 	}
 
-	// Allow re-provisioning if in debug mode or if specifically requested
-	// if game.Status != domain.GameStatusStored && (!s.debug || game.Status != domain.GameStatusActive) {
-	// 	return fmt.Errorf("game %d is not in stored state (current: %s)", gameID, game.Status)
-	// }
+	// 1. Validate State
+	if game.Status != domain.GameStatusStored && (!s.debug || game.Status != domain.GameStatusActive) {
+		return domain.ErrInactiveGame
+	}
 
 	// 1. Update status to Provisioning to prevent duplicate requests
 	err = s.gameRepo.UpdateGameStatus(gameID, domain.GameStatusProvisioning, game.StorageARN)
@@ -69,24 +76,18 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 	}
 
 	// 3. Publish Provisioning Event to EC2 Service
-	subj := messaging.Subject{
-		Env:        "dev",
-		Service:    "ec2",
-		Version:    "v1",
-		Domain:     "vm",
-		ActionType: "provision",
-	}
+	subj := messaging.GetEC2ProvisionSubject(s.appEnv)
 
 	var manifest domain.GameManifest
 	json.Unmarshal([]byte(game.Manifest), &manifest)
 
-	payload := map[string]interface{}{
-		"profile": "gamelift",
-		"specs": map[string]int{
+	payload := domain.EC2ProvisionRequest{
+		Profile: "gamelift",
+		Specs: map[string]int{
 			"cpu": 2,
 			"ram": 4096,
 		},
-		"parameters": map[string]string{
+		Parameters: map[string]string{
 			"game_id":        strconv.Itoa(game.ID),
 			"storage_arn":    game.StorageARN,
 			"headless_bin":   manifest.HeadlessBin,
@@ -94,11 +95,11 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 			"backend_url":    s.backendURL,
 			"streaming_mode": string(mode),
 		},
-		"user_id": game.UserID,
+		UserID: game.UserID,
 	}
 
 	data, _ := json.Marshal(payload)
-	log.Printf("[ProvisioningService] Requesting startup for game %d on node %s", gameID, targetNode)
+	s.logger.Infow("Requesting game startup", "game_id", gameID, "node", targetNode)
 
 	err = s.natsClient.Publish(subj, data)
 	if err != nil {
@@ -109,7 +110,7 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 }
 
 func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.StreamingMode) {
-	log.Printf("[ProvisioningService][DEBUG] STARTING LOCAL EXECUTION for Game %d...", game.ID)
+	s.logger.Infow("Starting local execution debug mode", "game_id", game.ID)
 
 	// Prepare Paths
 	tempDir := filepath.Join("/tmp", fmt.Sprintf("game_%d", game.ID))
@@ -126,7 +127,7 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	bucket, key := pathParts[0], pathParts[1]
 
 	if err := s.storage.DownloadFile(context.Background(), bucket, key, tempZip); err != nil {
-		log.Printf("[ProvisioningService][DEBUG] Download failed: %v", err)
+		s.logger.Errorw("Download failed", "error", err)
 		return
 	}
 
@@ -163,7 +164,7 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", terminalCmd)
 
 	if err := cmd.Start(); err != nil {
-		log.Printf("[ProvisioningService][DEBUG] Failed to start gnome-terminal, falling back to background exec: %v", err)
+		s.logger.Warnw("gnome-terminal failed, falling back to background exec", "error", err)
 		exec.Command(binPath, args...).Start()
 	}
 

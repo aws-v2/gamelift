@@ -1,9 +1,8 @@
-package handler
+package handlers
 
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -17,33 +16,37 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type GameHandler struct {
 	gameSvc         interfaces.GameRepository
-	natsClient      *messaging.NatsClient
+	natsClient      interfaces.MessagingClient
 	provisioningSvc interfaces.ProvisioningService
 	storage         *storage.MinIOAdapter
+	logger          *zap.SugaredLogger
 }
 
 func NewGameHandler(
-	gameSvc interfaces.GameRepository, 
-	natsClient *messaging.NatsClient, 
+	gameSvc interfaces.GameRepository,
+	natsClient interfaces.MessagingClient,
 	provisioningSvc interfaces.ProvisioningService,
 	storage *storage.MinIOAdapter,
+	logger *zap.SugaredLogger,
 ) *GameHandler {
 	return &GameHandler{
 		gameSvc:         gameSvc,
 		natsClient:      natsClient,
 		provisioningSvc: provisioningSvc,
 		storage:         storage,
+		logger:          logger,
 	}
 }
 
 func (h *GameHandler) ListGames(c *gin.Context) {
 	games, err := h.gameSvc.ListGames()
 	if err != nil {
-		response.SendError(c, http.StatusInternalServerError, "internal error")
+		response.SendAppError(c, err)
 		return
 	}
 
@@ -53,27 +56,23 @@ func (h *GameHandler) ListGames(c *gin.Context) {
 func (h *GameHandler) InitUpload(c *gin.Context) {
 	userID := c.GetString(string(domain.UserIDKey))
 
-	var req struct {
-		GameName string              `json:"game_name" binding:"required"`
-		VMID     string              `json:"vm_id" binding:"required"`
-		Manifest domain.GameManifest `json:"manifest" binding:"required"`
-	}
+	var req domain.GameInitUploadRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.SendError(c, http.StatusBadRequest, "invalid request: missing game_name, vm_id, or manifest")
+		response.SendAppError(c, domain.ErrValidationFailed)
 		return
 	}
 
 	// 1. Basic Manifest Validation (Schema only)
 	if req.Manifest.HeadlessBin == "" || req.Manifest.MainScene == "" {
-		response.SendError(c, http.StatusBadRequest, "invalid manifest: missing headless_bin or main_scene")
+		response.SendAppError(c, domain.ErrValidationFailed)
 		return
 	}
 
 	// 2. Database Initialization (PENDING record)
 	game, err := h.gameSvc.InitUpload(req.GameName, req.VMID, userID)
 	if err != nil {
-		response.SendError(c, http.StatusInternalServerError, "failed to initialize game record")
+		response.SendAppError(c, err)
 		return
 	}
 
@@ -98,24 +97,22 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 	data, _ := json.Marshal(payload)
 	msg, err := h.natsClient.Request(subj, data, 2*time.Second)
 	if err != nil {
-		response.SendError(c, http.StatusServiceUnavailable, "s3 service unavailable (nats timeout)")
+		response.SendAppError(c, domain.ErrProvisioningFailed)
 		return
 	}
 
-	var natsResp struct {
-		UploadURL string `json:"upload_url"`
-	}
+	var natsResp domain.S3PresignedURLResponse
 	if err := json.Unmarshal(msg.Data, &natsResp); err != nil || natsResp.UploadURL == "" {
-		response.SendError(c, http.StatusInternalServerError, "invalid response from s3 service")
+		response.SendAppError(c, domain.ErrInternal)
 		return
 	}
 
-	log.Printf("[GameHandler] User %s initiated upload for game '%s' -> Returning Presigned URL  with this url: '%s'", userID, req.GameName,natsResp.UploadURL)
+	h.logger.Infow("User initiated upload", "user_id", userID, "game_name", req.GameName, "upload_url", natsResp.UploadURL)
 
-	response.SendSuccess(c, http.StatusOK, "Upload initialized. Please upload your ZIP to S3.", gin.H{
-		"game_id":    game.ID,
-		"upload_url": natsResp.UploadURL,
-		"arn":        game.ARN,
+	response.SendSuccess(c, http.StatusOK, "Upload initialized. Please upload your ZIP to S3.", domain.InitUploadResponse{
+		GameID:    game.ID,
+		UploadURL: natsResp.UploadURL,
+		ARN:        game.ARN,
 	})
 }
 
@@ -128,7 +125,7 @@ func (h *GameHandler) GetManifest(c *gin.Context) {
 
 	game, err := h.gameSvc.GetGame(id)
 	if err != nil || game.Manifest == "" {
-		response.SendError(c, http.StatusNotFound, "manifest not found")
+		response.SendAppError(c, domain.ErrGameNotFound)
 		return
 	}
 
@@ -139,13 +136,10 @@ func (h *GameHandler) GetManifest(c *gin.Context) {
 
 // PlayGame handles the on-demand provisioning request.
 func (h *GameHandler) PlayGame(c *gin.Context) {
-	var req struct {
-		GameID int                  `json:"game_id" binding:"required"`
-		Mode   domain.StreamingMode `json:"streaming_mode"`
-	}
+	var req domain.PlayGameRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.SendError(c, http.StatusBadRequest, "missing game_id")
+		response.SendAppError(c, domain.ErrValidationFailed)
 		return
 	}
 
@@ -156,14 +150,14 @@ func (h *GameHandler) PlayGame(c *gin.Context) {
 
 	err := h.provisioningSvc.ProvisionGame(req.GameID, req.Mode)
 	if err != nil {
-		log.Printf("[GameHandler] Provisioning failed for game %d: %v", req.GameID, err)
-		response.SendError(c, http.StatusConflict, err.Error())
+		h.logger.Errorw("Provisioning failed", "game_id", req.GameID, "error", err)
+		response.SendAppError(c, err)
 		return
 	}
 
-	response.SendSuccess(c, http.StatusAccepted, "Game provisioning started", gin.H{
-		"game_id": req.GameID,
-		"status":  "provisioning",
+	response.SendSuccess(c, http.StatusAccepted, "Game provisioning started", domain.PlayGameResponse{
+		GameID: req.GameID,
+		Status:  "provisioning",
 	})
 }
 
@@ -172,42 +166,42 @@ func (h *GameHandler) DownloadPackage(c *gin.Context) {
 	gameIDStr := c.Param("id")
 	gameID, err := strconv.Atoi(gameIDStr)
 	if err != nil {
-		response.SendError(c, http.StatusBadRequest, "invalid game id")
+		response.SendAppError(c, domain.ErrValidationFailed)
 		return
 	}
 
 	game, err := h.gameSvc.GetGame(gameID)
 	if err != nil {
-		response.SendError(c, http.StatusNotFound, "game not found")
+		response.SendAppError(c, err)
 		return
 	}
 
 	// Parsing bucket and key from ARN: arn:aws:s3:::bucket/key
 	arnParts := strings.Split(game.ARN, ":::")
 	if len(arnParts) < 2 {
-		response.SendError(c, http.StatusInternalServerError, "invalid storage configuration for game")
+		response.SendAppError(c, domain.ErrStorageError)
 		return
 	}
 	pathParts := strings.SplitN(arnParts[1], "/", 2)
 	if len(pathParts) < 2 {
-		response.SendError(c, http.StatusInternalServerError, "invalid path in game storage")
+		response.SendAppError(c, domain.ErrStorageError)
 		return
 	}
 	bucket, key := pathParts[0], pathParts[1]
 
-	log.Printf("[GameHandler] Internal download request for Game %d (%s/%s)", gameID, bucket, key)
+	h.logger.Infow("Internal download request", "game_id", gameID, "bucket", bucket, "key", key)
 
 	// Get Object Info for Content-Length
 	info, err := h.storage.GetObjectInfo(c.Request.Context(), bucket, key)
 	if err != nil {
-		response.SendError(c, http.StatusInternalServerError, fmt.Sprintf("failed to get package info: %v", err))
+		response.SendAppError(c, domain.ErrStorageError)
 		return
 	}
 
 	// Get Stream
 	stream, err := h.storage.GetObjectStream(c.Request.Context(), bucket, key)
 	if err != nil {
-		response.SendError(c, http.StatusInternalServerError, fmt.Sprintf("failed to open package stream: %v", err))
+		response.SendAppError(c, domain.ErrStorageError)
 		return
 	}
 	defer stream.Close()
@@ -222,6 +216,6 @@ func (h *GameHandler) DownloadPackage(c *gin.Context) {
 	// Stream directly to response writer
 	_, err = io.Copy(c.Writer, stream)
 	if err != nil {
-		log.Printf("[GameHandler] Stream error for Game %d: %v", gameID, err)
+		h.logger.Errorw("Stream error", "game_id", gameID, "error", err)
 	}
 }

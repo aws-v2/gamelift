@@ -2,10 +2,10 @@ package messaging
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"go.uber.org/zap"
 )
 
 // Subject represents the strict naming scheme: <env>.<service>.<version>.<domain>.<action_type>
@@ -24,18 +24,22 @@ func (s Subject) String() string {
 
 // NatsClient wrapper for structured messaging.
 type NatsClient struct {
-	nc *nats.Conn
+	nc     *nats.Conn
+	logger *zap.SugaredLogger
 }
 
-// NewNatsClient creates a new NATS client with an established connection.
-func NewNatsClient(nc *nats.Conn) *NatsClient {
-	return &NatsClient{nc: nc}
+// NewNatsClient creates a new NATS client with an established connection and logger.
+func NewNatsClient(nc *nats.Conn, logger *zap.SugaredLogger) *NatsClient {
+	return &NatsClient{
+		nc:     nc,
+		logger: logger,
+	}
 }
 
 // Publish enforces the structured subject scheme for publishing messages.
 func (c *NatsClient) Publish(subject Subject, data []byte) error {
 	subjStr := subject.String()
-	log.Printf("[NATS] Publish to %s: %d bytes", subjStr, len(data))
+	c.logger.Infow("NATS Publish", "subject", subjStr, "bytes", len(data))
 	if c.nc != nil {
 		return c.nc.Publish(subjStr, data)
 	}
@@ -43,9 +47,9 @@ func (c *NatsClient) Publish(subject Subject, data []byte) error {
 }
 
 // Subscribe enforces the structured subject scheme for consuming messages.
-func (c *NatsClient) Subscribe(subject Subject, handler func(msg *nats.Msg)) (*nats.Subscription, error) {
+func (c *NatsClient) Subscribe(subject Subject, handler nats.MsgHandler) (*nats.Subscription, error) {
 	subjStr := subject.String()
-	log.Printf("[NATS] Subscribe to %s", subjStr)
+	c.logger.Infow("NATS Subscribe", "subject", subjStr)
 	if c.nc != nil {
 		return c.nc.Subscribe(subjStr, handler)
 	}
@@ -55,7 +59,7 @@ func (c *NatsClient) Subscribe(subject Subject, handler func(msg *nats.Msg)) (*n
 // Request enforces the structured subject scheme for request-reply patterns.
 func (c *NatsClient) Request(subject Subject, data []byte, timeout time.Duration) (*nats.Msg, error) {
 	subjStr := subject.String()
-	log.Printf("[NATS] Request to %s: %d bytes", subjStr, len(data))
+	c.logger.Infow("NATS Request", "subject", subjStr, "bytes", len(data))
 	if c.nc != nil {
 		return c.nc.Request(subjStr, data, timeout)
 	}

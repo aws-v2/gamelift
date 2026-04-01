@@ -11,6 +11,8 @@ type GameRepository interface {
 	InitUpload(name, vmID, accountID string) (*domain.Game, error)
 	UpdateGameStatus(id int, status domain.GameStatus, storageARN string) error
 	UpdateGameManifest(id int, manifest string) error
+	GetGameByVMID(vmid string) (*domain.Game, error)
+	UpdateStatusByVMID(vmid string, status domain.GameStatus) error
 }
 
 // ProvisioningService defines the contract for on-demand game startup.

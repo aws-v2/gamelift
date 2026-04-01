@@ -1,8 +1,6 @@
-package transport
+package http
 
 import (
-	"log"
-	"net/http"
 	"strings"
 
 	"backend/internal/domain"
@@ -30,7 +28,7 @@ func AuthMiddleware(authSvc interfaces.AuthService) gin.HandlerFunc {
 		}
 
 		if tokenStr == "" {
-			response.SendError(c, http.StatusUnauthorized, "unauthorized-0")
+			response.SendAppError(c, domain.ErrUnauthorized)
 			c.Abort()
 			return
 		}
@@ -38,8 +36,7 @@ func AuthMiddleware(authSvc interfaces.AuthService) gin.HandlerFunc {
 		// Validate token
 		claims, err := authSvc.ValidateToken(tokenStr)
 		if err != nil {
-			response.SendError(c, http.StatusUnauthorized, "unauthorized-1")
-			log.Printf(err.Error())
+			response.SendAppError(c, domain.ErrUnauthorized)
 
 			c.Abort()
 			return
@@ -52,7 +49,7 @@ func AuthMiddleware(authSvc interfaces.AuthService) gin.HandlerFunc {
 		}
 
 		if !ok || userID == "" {
-			response.SendError(c, http.StatusUnauthorized, "invalid claims")
+			response.SendAppError(c, domain.ErrUnauthorized)
 			c.Abort()
 			return
 		}

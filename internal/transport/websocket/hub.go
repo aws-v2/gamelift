@@ -1,12 +1,13 @@
-package handler
+package websocket
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 var upgrader = websocket.Upgrader{
@@ -24,14 +25,16 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 	mu         sync.Mutex
+	logger     *zap.SugaredLogger
 }
 
-func NewHub() *Hub {
+func NewHub(logger *zap.SugaredLogger) *Hub {
 	return &Hub{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
+		logger:     logger,
 	}
 }
 
@@ -46,13 +49,14 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
-			log.Printf("[Hub] New client connected. Total clients: %d", len(h.clients))
+			h.mu.Unlock()
+			h.logger.Infow("New client connected", "total_clients", len(h.clients))
 		case client := <-h.unregister:
 			h.mu.Lock()
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
-				log.Printf("[Hub] Client disconnected. Total clients: %d", len(h.clients))
+				h.logger.Infow("Client disconnected", "total_clients", len(h.clients))
 			}
 			h.mu.Unlock()
 		case message := <-h.broadcast:
@@ -81,7 +85,7 @@ func NewWebSocketHandler(hub *Hub) *WebSocketHandler {
 func (h *WebSocketHandler) Handle(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("[WS] Upgrade error: %v", err)
+		h.hub.logger.Errorw("WebSocket upgrade failed", "error", err)
 		return
 	}
 
@@ -101,15 +105,15 @@ func (h *WebSocketHandler) readPump(c *Client) {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			log.Printf("[WS][ReadPump] Error reading message from client %p: %v", c, err)
+			h.hub.logger.Debugw("Error reading from websocket", "client", fmt.Sprintf("%p", c), "error", err)
 			break
 		}
 		
 		// Log every message received (Keyboard, Mouse, or Godot State)
-		log.Printf("[WS][Incoming] Message from client %p: %s", c, string(message))
+		h.hub.logger.Debugw("Incoming message", "client", fmt.Sprintf("%p", c), "msg", string(message))
 		
 		// Log the data being sent to the hub for transparency
-		log.Printf("[WS][Outgoing] Broadcasting message from client %p to hub: %s", c, string(message))
+		h.hub.logger.Debugw("Broadcasting message", "client", fmt.Sprintf("%p", c), "msg", string(message))
 		h.hub.broadcast <- message
 	}
 }

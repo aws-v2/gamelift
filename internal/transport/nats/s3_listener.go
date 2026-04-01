@@ -1,39 +1,44 @@
-package service
+package nats
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"backend/internal/application"
 	"backend/internal/domain"
 	"backend/internal/infrastructure/storage"
 	"backend/internal/interfaces"
 	"backend/internal/messaging"
 
 	"github.com/nats-io/nats.go"
+	"go.uber.org/zap"
 )
 
 type S3Listener struct {
 	gameRepo      interfaces.GameRepository
-	natsClient    *messaging.NatsClient
-	validationSvc *ValidationService
+	natsClient    interfaces.MessagingClient
+	validationSvc *application.ValidationService
 	storage       *storage.MinIOAdapter
 	backendURL    string
+	appEnv        string
+	logger        *zap.SugaredLogger
 }
 
 func NewS3Listener(
-	gameRepo interfaces.GameRepository, 
-	natsClient *messaging.NatsClient, 
-	validationSvc *ValidationService,
+	gameRepo interfaces.GameRepository,
+	natsClient interfaces.MessagingClient,
+	validationSvc *application.ValidationService,
 	storage *storage.MinIOAdapter,
 	backendURL string,
+	appEnv string,
+	logger *zap.SugaredLogger,
 ) *S3Listener {
 	return &S3Listener{
 		gameRepo:      gameRepo,
@@ -41,39 +46,30 @@ func NewS3Listener(
 		validationSvc: validationSvc,
 		storage:       storage,
 		backendURL:    backendURL,
+		appEnv:        appEnv,
+		logger:        logger,
 	}
 }
 
 func (l *S3Listener) Start() {
-	subj := messaging.Subject{
-		Env:        "dev",
-		Service:    "s3",
-		Version:    "v1",
-		Domain:     "game",
-		ActionType: "stored",
-	}
+	subj := messaging.GetS3StoredSubject(l.appEnv)
 
 	_, err := l.natsClient.Subscribe(subj, func(msg *nats.Msg) {
-		log.Printf("[S3Listener] Received message from NATS: %s", string(msg.Data))
-		var payload struct {
-			GameID      int    `json:"game_id"`
-			StorageARN  string `json:"s3_arn"`
-			DownloadURL string `json:"download_url"`
-			Status      string `json:"status"`
-		}
+		l.logger.Debugw("Received S3 message", "data", string(msg.Data))
+		var payload domain.S3StoredEvent
 
 		if err := json.Unmarshal(msg.Data, &payload); err != nil {
-			log.Printf("[S3Listener] Failed to unmarshal message: %v", err)
+			l.logger.Errorw("Failed to unmarshal S3 message", "error", err)
 			return
 		}
 
 		if payload.Status == "success" {
-			log.Printf("[S3Listener] S3 Upload successful for Game %d. Starting Async Validation...", payload.GameID)
+			l.logger.Infow("S3 Upload successful, starting validation", "game_id", payload.GameID)
 
 			// 1. Get Game Record
 			game, err := l.gameRepo.GetGame(payload.GameID)
 			if err != nil {
-				log.Printf("[S3Listener] Failed to find game %d: %v", payload.GameID, err)
+				l.logger.Errorw("Failed to find game", "game_id", payload.GameID, "error", err)
 				return
 			}
 
@@ -87,19 +83,19 @@ func (l *S3Listener) Start() {
 			// Expected format: arn:aws:s3:::gamelift_games/uploads/games/11/game.zip
 			arnParts := strings.Split(payload.StorageARN, ":::")
 			if len(arnParts) < 2 {
-				log.Printf("[S3Listener] Invalid StorageARN: %s", payload.StorageARN)
+				l.logger.Errorw("Invalid StorageARN", "arn", payload.StorageARN)
 				return
 			}
 			pathParts := strings.SplitN(arnParts[1], "/", 2)
 			if len(pathParts) < 2 {
-				log.Printf("[S3Listener] Could not parse bucket/key from ARN: %s", payload.StorageARN)
+				l.logger.Errorw("Could not parse bucket/key from ARN", "arn", payload.StorageARN)
 				return
 			}
 			bucket, key := pathParts[0], pathParts[1]
 
-			log.Printf("[S3Listener] Directly downloading %s/%s from MinIO...", bucket, key)
+			l.logger.Infow("Directly downloading from MinIO", "bucket", bucket, "key", key)
 			if err := l.storage.DownloadFile(context.Background(), bucket, key, tempZip); err != nil {
-				log.Printf("[S3Listener] Direct download failed: %v", err)
+				l.logger.Errorw("Direct download failed", "error", err)
 				l.gameRepo.UpdateGameStatus(payload.GameID, "failed", "")
 				return
 			}
@@ -109,56 +105,50 @@ func (l *S3Listener) Start() {
 			json.Unmarshal([]byte(game.Manifest), &manifest)
 
 			if err := l.validationSvc.Unzip(tempZip, tempDir); err != nil {
-				log.Printf("[S3Listener] Unzip failed: %v", err)
+				l.logger.Errorw("Unzip failed", "error", err)
 				l.gameRepo.UpdateGameStatus(payload.GameID, "failed", "")
 				return
 			}
 
 			if err := l.validationSvc.ValidateStructure(tempDir, manifest); err != nil {
-				log.Printf("[S3Listener] Validation failed for Game %d: %v", payload.GameID, err)
+				l.logger.Errorw("Validation failed", "game_id", payload.GameID, "error", err)
 				l.gameRepo.UpdateGameStatus(payload.GameID, "failed", "")
 				return
 			}
 
 			// 5. Finalize
-			log.Printf("[S3Listener] Validation passed! Finalizing game %d", payload.GameID)
+			l.logger.Infow("Validation passed! Finalizing game", "game_id", payload.GameID)
 			err = l.gameRepo.UpdateGameStatus(payload.GameID, domain.GameStatusStored, payload.StorageARN)
 			if err != nil {
-				log.Printf("[S3Listener] Failed to update status: %v", err)
+				l.logger.Errorw("Failed to update status", "error", err)
 				return
 			}
 
 			// 6. Trigger Specialized EC2 Service for VM Commissioning
-			ec2Subj := messaging.Subject{
-				Env:        "dev",
-				Service:    "ec2",
-				Version:    "v1",
-				Domain:     "vm",
-				ActionType: "provision",
-			}
-			ec2Payload := map[string]interface{}{
-				"profile": "gamelift",
-				"specs": map[string]int{
+			ec2Subj := messaging.GetEC2ProvisionSubject(l.appEnv)
+			ec2Payload := domain.EC2ProvisionRequest{
+				Profile: "gamelift",
+				Specs: map[string]int{
 					"cpu": 2,
 					"ram": 4096,
 				},
-				"parameters": map[string]string{
+				Parameters: map[string]string{
 					"game_id":      strconv.Itoa(payload.GameID),
 					"storage_arn":  payload.StorageARN,
 					"headless_bin": manifest.HeadlessBin,
 					"game_name":    game.Name,
 					"backend_url":  l.backendURL,
 				},
-				"user_id": game.UserID,
+				UserID: game.UserID,
 			}
 			ec2Data, _ := json.Marshal(ec2Payload)
 			l.natsClient.Publish(ec2Subj, ec2Data)
-			log.Printf("[S3Listener] Triggered EC2 Provisioning for Game %d (%s)", payload.GameID, game.Name)
+			l.logger.Infow("Triggered EC2 Provisioning", "game_id", payload.GameID, "game_name", game.Name)
 		}
 	})
 
 	if err != nil {
-		log.Fatalf("[S3Listener] Failed to subscribe to NATS: %v", err)
+		l.logger.Fatalf("Failed to subscribe to NATS", "error", err)
 	}
 }
 

@@ -1,4 +1,4 @@
-package service
+package application
 
 import (
 	"backend/internal/config"
@@ -6,18 +6,23 @@ import (
 	"os"
 	"time"
 
+	"backend/internal/domain"
+
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 )
 
 type AuthServiceImpl struct {
 	secret     []byte
 	expiration time.Duration
+	logger     *zap.SugaredLogger
 }
 
-func NewAuthService(cfg *config.Config) *AuthServiceImpl {
+func NewAuthService(cfg *config.Config, logger *zap.SugaredLogger) *AuthServiceImpl {
 	return &AuthServiceImpl{
 		secret:     cfg.JWTSecret,
 		expiration: cfg.JWTExpiration,
+		logger:     logger,
 	}
 }
 
@@ -51,5 +56,5 @@ func (s *AuthServiceImpl) ValidateToken(tokenStr string) (map[string]interface{}
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		return claims, nil
 	}
-	return nil, fmt.Errorf("invalid token")
+	return nil, domain.ErrUnauthorized
 }

@@ -1,28 +1,29 @@
-package handler
+package handlers
 
 import (
-	"log"
 	"net/http"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 var webrtcUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// WebRTCSignalingHandler manages the exchange of SDP/ICE candidates between the client and the Godot instance.
 type WebRTCSignalingHandler struct {
 	// rooms maps a session ID to a list of participants (client and game server)
 	rooms   map[string][]*websocket.Conn
 	roomsMu sync.Mutex
+	logger  *zap.SugaredLogger
 }
 
-func NewWebRTCSignalingHandler() *WebRTCSignalingHandler {
+func NewWebRTCSignalingHandler(logger *zap.SugaredLogger) *WebRTCSignalingHandler {
 	return &WebRTCSignalingHandler{
-		rooms: make(map[string][]*websocket.Conn),
+		rooms:  make(map[string][]*websocket.Conn),
+		logger: logger,
 	}
 }
 
@@ -35,7 +36,7 @@ func (h *WebRTCSignalingHandler) HandleSignaling(c *gin.Context) {
 
 	conn, err := webrtcUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("[WebRTC] Upgrade error: %v", err)
+		h.logger.Errorw("WebRTC upgrade failed", "error", err)
 		return
 	}
 	defer conn.Close()
@@ -45,13 +46,13 @@ func (h *WebRTCSignalingHandler) HandleSignaling(c *gin.Context) {
 	roomSize := len(h.rooms[sessionID])
 	h.roomsMu.Unlock()
 
-	log.Printf("[WebRTC] Session %s: Participant joined. Total: %d", sessionID, roomSize)
+	h.logger.Infow("Participant joined WebRTC Hub", "session_id", sessionID, "total_participants", roomSize)
 
 	// In a simple signaling server, we just relay any received message to the other participant in the same room.
 	for {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("[WebRTC] Session %s error: %v", sessionID, err)
+			h.logger.Errorw("WebRTC session error", "session_id", sessionID, "error", err)
 			break
 		}
 
@@ -60,7 +61,7 @@ func (h *WebRTCSignalingHandler) HandleSignaling(c *gin.Context) {
 		for _, p := range participants {
 			if p != conn {
 				if err := p.WriteMessage(messageType, message); err != nil {
-					log.Printf("[WebRTC] Relay error: %v", err)
+					h.logger.Errorw("WebRTC relay error", "error", err)
 				}
 			}
 		}

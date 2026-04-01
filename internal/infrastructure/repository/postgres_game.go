@@ -1,4 +1,4 @@
-package service
+package repository
 
 import (
 	"fmt"
@@ -6,14 +6,19 @@ import (
 	"backend/internal/domain"
 	"backend/pkg/database"
 
+	"go.uber.org/zap"
 )
 
 type PostgresGameRepository struct {
-	db *database.DB
+	db     *database.DB
+	logger *zap.SugaredLogger
 }
 
-func NewPostgresGameRepository(db *database.DB) *PostgresGameRepository {
-	return &PostgresGameRepository{db: db}
+func NewPostgresGameRepository(db *database.DB, logger *zap.SugaredLogger) *PostgresGameRepository {
+	return &PostgresGameRepository{
+		db:     db,
+		logger: logger,
+	}
 }
 
 func (r *PostgresGameRepository) ListGames() ([]domain.Game, error) {
@@ -26,7 +31,8 @@ func (r *PostgresGameRepository) ListGames() ([]domain.Game, error) {
 func (r *PostgresGameRepository) GetGame(id int) (*domain.Game, error) {
 	var game domain.Game
 	if err := r.db.GORM.First(&game, id).Error; err != nil {
-		return nil, fmt.Errorf("game %d not found: %w", id, err)
+		r.logger.Warnw("Game not found", "id", id, "error", err)
+		return nil, domain.ErrGameNotFound
 	}
 	return &game, nil
 }
@@ -86,4 +92,17 @@ func (r *PostgresGameRepository) UpdateGameStatus(id int, status domain.GameStat
 }
 func (r *PostgresGameRepository) UpdateGameManifest(id int, manifest string) error {
 	return r.db.GORM.Model(&domain.Game{}).Where("id = ?", id).Update("manifest", manifest).Error
+}
+
+func (r *PostgresGameRepository) GetGameByVMID(vmid string) (*domain.Game, error) {
+	var game domain.Game
+	if err := r.db.GORM.Where("vm_id = ?", vmid).First(&game).Error; err != nil {
+		r.logger.Warnw("Game not found by VMID", "vm_id", vmid, "error", err)
+		return nil, domain.ErrGameNotFound
+	}
+	return &game, nil
+}
+
+func (r *PostgresGameRepository) UpdateStatusByVMID(vmid string, status domain.GameStatus) error {
+	return r.db.GORM.Model(&domain.Game{}).Where("vm_id = ?", vmid).Update("status", status).Error
 }

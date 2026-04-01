@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 
 	"backend/internal/config"
 )
 
 // RegisterWithEureka registers the service instance with Eureka server
-func RegisterWithEureka(cfg config.EurekaConfig) error {
+func RegisterWithEureka(cfg config.EurekaConfig, logger *zap.SugaredLogger) error {
 	instance := map[string]interface{}{
 		"instance": map[string]interface{}{
 			"instanceId": cfg.InstanceID,
@@ -62,12 +63,12 @@ func RegisterWithEureka(cfg config.EurekaConfig) error {
 		return fmt.Errorf("eureka registration failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("✅ Successfully registered with Eureka server at %s", url)
+	logger.Infow("Successfully registered with Eureka server", "url", url)
 	return nil
 }
 
 // SendHeartbeat sends periodic heartbeats to Eureka server
-func SendHeartbeat(cfg config.EurekaConfig) {
+func SendHeartbeat(cfg config.EurekaConfig, logger *zap.SugaredLogger) {
 	ticker := time.NewTicker(cfg.HeartbeatInterval)
 	defer ticker.Stop()
 
@@ -77,21 +78,21 @@ func SendHeartbeat(cfg config.EurekaConfig) {
 	for range ticker.C {
 		req, err := http.NewRequest("PUT", url, nil)
 		if err != nil {
-			log.Printf("❌ Failed to create heartbeat request: %v", err)
+			logger.Errorw("Failed to create heartbeat request", "error", err)
 			continue
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Printf("❌ Failed to send heartbeat to Eureka: %v", err)
+			logger.Errorw("Failed to send heartbeat to Eureka", "error", err)
 			continue
 		}
 
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 			body, _ := io.ReadAll(resp.Body)
-			log.Printf("⚠️  Heartbeat failed with status %d: %s", resp.StatusCode, string(body))
+			logger.Warnw("Heartbeat failed", "status", resp.StatusCode, "body", string(body))
 		} else {
-			log.Printf("💓 Heartbeat sent successfully to Eureka")
+			logger.Debugw("Heartbeat sent successfully to Eureka")
 		}
 
 		resp.Body.Close()
@@ -99,7 +100,7 @@ func SendHeartbeat(cfg config.EurekaConfig) {
 }
 
 // DeregisterFromEureka removes the service instance from Eureka
-func DeregisterFromEureka(cfg config.EurekaConfig) error {
+func DeregisterFromEureka(cfg config.EurekaConfig, logger *zap.SugaredLogger) error {
 	url := fmt.Sprintf("%s/apps/%s/%s", cfg.ServerURL, cfg.AppName, cfg.InstanceID)
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -118,6 +119,6 @@ func DeregisterFromEureka(cfg config.EurekaConfig) error {
 		return fmt.Errorf("deregistration failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("✅ Successfully deregistered from Eureka server")
+	logger.Infow("Successfully deregistered from Eureka server")
 	return nil
 }

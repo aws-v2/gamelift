@@ -1,10 +1,9 @@
-package service
+package application
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,18 +16,21 @@ import (
 	"backend/internal/messaging"
 
 	"github.com/nats-io/nats.go"
+	"go.uber.org/zap"
 )
 
 type NodeAgent struct {
 	NodeID     string
 	gameRepo   interfaces.GameRepository
-	natsClient *messaging.NatsClient
+	natsClient interfaces.MessagingClient
 	storage    *storage.MinIOAdapter
 	debug      bool
 	godotPath  string
+	appEnv     string
+	logger     *zap.SugaredLogger
 }
 
-func NewNodeAgent(nodeID string, gameRepo interfaces.GameRepository, natsClient *messaging.NatsClient, storage *storage.MinIOAdapter, debug bool, godotPath string) *NodeAgent {
+func NewNodeAgent(nodeID string, gameRepo interfaces.GameRepository, natsClient interfaces.MessagingClient, storage *storage.MinIOAdapter, debug bool, godotPath string, appEnv string, logger *zap.SugaredLogger) *NodeAgent {
 	return &NodeAgent{
 		NodeID:     nodeID,
 		gameRepo:   gameRepo,
@@ -36,28 +38,19 @@ func NewNodeAgent(nodeID string, gameRepo interfaces.GameRepository, natsClient 
 		storage:    storage,
 		debug:      debug,
 		godotPath:  godotPath,
+		appEnv:     appEnv,
+		logger:     logger,
 	}
 }
 
 func (a *NodeAgent) Start() {
-	subj := messaging.Subject{
-		Env:        "dev",
-		Service:    "provisioning",
-		Version:    "v1",
-		Domain:     "game",
-		ActionType: "provision",
-	}
+	subj := messaging.GetProvisionGameSubject(a.appEnv)
 
 	_, err := a.natsClient.Subscribe(subj, func(msg *nats.Msg) {
-		var payload struct {
-			GameID        int                  `json:"game_id"`
-			StorageARN    string               `json:"storage_arn"`
-			TargetNode    string               `json:"target_node"`
-			StreamingMode domain.StreamingMode `json:"streaming_mode"`
-		}
+		var payload domain.ProvisionGameRequest
 
 		if err := json.Unmarshal(msg.Data, &payload); err != nil {
-			log.Printf("[NodeAgent] Failed to unmarshal provisioning request: %v", err)
+			a.logger.Errorw("Failed to unmarshal provisioning request", "error", err)
 			return
 		}
 
@@ -66,7 +59,7 @@ func (a *NodeAgent) Start() {
 			return
 		}
 
-		log.Printf("[NodeAgent %s] Provisioning request received for game %d", a.NodeID, payload.GameID)
+		a.logger.Infow("Provisioning request received", "node_id", a.NodeID, "game_id", payload.GameID)
 
 		// Simulating the Initialization Layer:
 		// 1. Download artifact from S3 (StorageARN)
@@ -80,12 +73,12 @@ func (a *NodeAgent) Start() {
 })
 
 	if err != nil {
-		log.Fatalf("[NodeAgent] Failed to subscribe to provisioning topic: %v", err)
+		a.logger.Fatalf("Failed to subscribe to provisioning topic", "error", err)
 	}
 }
 
 func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode domain.StreamingMode) {
-	log.Printf("[NodeAgent %s][DEBUG] STARTING LOCAL EXECUTION for Game %d...", a.NodeID, gameID)
+	a.logger.Infow("Starting debug local execution", "node_id", a.NodeID, "game_id", gameID)
 
 	// 1. Prepare Paths
 	tempDir := filepath.Join("/tmp", fmt.Sprintf("game_%d", gameID))
@@ -97,23 +90,23 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 	// 2. Parse ARN: arn:aws:s3:::bucket/key
 	arnParts := strings.Split(storageARN, ":::")
 	if len(arnParts) < 2 {
-		log.Printf("[NodeAgent] Invalid StorageARN: %s", storageARN)
+		a.logger.Errorw("Invalid StorageARN", "arn", storageARN)
 		return
 	}
 	pathParts := strings.SplitN(arnParts[1], "/", 2)
 	bucket, key := pathParts[0], pathParts[1]
 
 	// 3. Download from MinIO
-	log.Printf("[NodeAgent %s][DEBUG] Downloading game files from %s/%s...", a.NodeID, bucket, key)
+	a.logger.Debugw("Downloading game files", "node_id", a.NodeID, "bucket", bucket, "key", key)
 	if err := a.storage.DownloadFile(context.Background(), bucket, key, tempZip); err != nil {
-		log.Printf("[NodeAgent %s][DEBUG] Download failed: %v", a.NodeID, err)
+		a.logger.Errorw("Download failed", "node_id", a.NodeID, "error", err)
 		return
 	}
 
 	// 4. Unzip
 	unzipper := NewValidationService()
 	if err := unzipper.Unzip(tempZip, tempDir); err != nil {
-		log.Printf("[NodeAgent %s][DEBUG] Unzip failed: %v", a.NodeID, err)
+		a.logger.Errorw("Unzip failed", "node_id", a.NodeID, "error", err)
 		return
 	}
 
@@ -123,7 +116,7 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 	json.Unmarshal([]byte(game.Manifest), &manifest)
 
 	binPath := filepath.Join(tempDir, manifest.HeadlessBin)
-	log.Printf("[NodeAgent %s][DEBUG] Launching binary: %s", a.NodeID, binPath)
+	a.logger.Infow("Launching binary", "node_id", a.NodeID, "bin", binPath)
 
 	// Make binary executable
 	os.Chmod(binPath, 0755)
@@ -142,22 +135,22 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", terminalCmd)
 	
 	if err := cmd.Start(); err != nil {
-		log.Printf("[NodeAgent %s][DEBUG] Failed to start gnome-terminal: %v (falling back to direct exec)", a.NodeID, err)
+		a.logger.Warnw("Failed to start gnome-terminal", "node_id", a.NodeID, "error", err)
 		cmd = exec.Command(binPath, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
-			log.Printf("[NodeAgent %s][DEBUG] Failed to start Godot: %v", a.NodeID, err)
+			a.logger.Errorw("Failed to start Godot", "node_id", a.NodeID, "error", err)
 			return
 		}
 	}
 
-	log.Printf("[NodeAgent %s][DEBUG] Process started with PID %d", a.NodeID, cmd.Process.Pid)
+	a.logger.Infow("Process started", "node_id", a.NodeID, "pid", cmd.Process.Pid)
 
 	// 7. Update status to Active
 	err := a.gameRepo.UpdateGameStatus(gameID, domain.GameStatusActive, storageARN)
 	if err != nil {
-		log.Printf("[NodeAgent %s] Failed to finalize status: %v", a.NodeID, err)
+		a.logger.Errorw("Failed to finalize status", "node_id", a.NodeID, "error", err)
 		return
 	}
 
@@ -167,25 +160,15 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 	// Keep process running in background
 	go func() {
 		cmd.Wait()
-		log.Printf("[NodeAgent %s][DEBUG] Game %d process exited", a.NodeID, gameID)
+		a.logger.Infow("Game process exited", "node_id", a.NodeID, "game_id", gameID)
 		a.gameRepo.UpdateGameStatus(gameID, domain.GameStatusStored, storageARN)
 	}()
 }
 
 func (a *NodeAgent) notifyReady(gameID int, port int) {
-	readySubj := messaging.Subject{
-		Env:        "dev",
-		Service:    "provisioning",
-		Version:    "v1",
-		Domain:     "game",
-		ActionType: "ready",
-	}
+	readySubj := messaging.GetGameReadySubject(a.appEnv)
 
-	readyPayload := struct {
-		GameID int    `json:"game_id"`
-		NodeID string `json:"node_id"`
-		Port   int    `json:"port"`
-	}{
+	readyPayload := domain.GameReadyEvent{
 		GameID: gameID,
 		NodeID: a.NodeID,
 		Port:   port,
@@ -193,21 +176,21 @@ func (a *NodeAgent) notifyReady(gameID int, port int) {
 
 	data, _ := json.Marshal(readyPayload)
 	a.natsClient.Publish(readySubj, data)
-	log.Printf("[NodeAgent %s] Game %d is now LIVE and READY!", a.NodeID, gameID)
+	a.logger.Infow("Game is LIVE and READY", "node_id", a.NodeID, "game_id", gameID)
 }
 
 func (a *NodeAgent) initializeGame(gameID int, storageARN string, mode domain.StreamingMode) {
-	log.Printf("[NodeAgent %s] STARTING INITIALIZATION for Game %d...", a.NodeID, gameID)
+	a.logger.Infow("Starting initialization", "node_id", a.NodeID, "game_id", gameID)
 	
 	// Simulation of cold start delay
 	time.Sleep(3 * time.Second) 
 
-	log.Printf("[NodeAgent %s] Process started for Game %d. Listening on port 8080", a.NodeID, gameID)
+	a.logger.Infow("Process started for game", "node_id", a.NodeID, "game_id", gameID, "port", 8080)
 
 	// 4. Update status to Active
 	err := a.gameRepo.UpdateGameStatus(gameID, domain.GameStatusActive, storageARN)
 	if err != nil {
-		log.Printf("[NodeAgent %s] Failed to finalize status for game %d: %v", a.NodeID, gameID, err)
+		a.logger.Errorw("Failed to finalize status", "node_id", a.NodeID, "game_id", gameID, "error", err)
 		return
 	}
 

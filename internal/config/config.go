@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"backend/pkg/database"
+
+	"github.com/joho/godotenv"
 )
 
 type EurekaConfig struct {
@@ -19,15 +23,19 @@ type EurekaConfig struct {
 }
 
 type Config struct {
-	ServerPort string
+	AppEnv        string
+	ServerPort    string
 	JWTSecret     []byte
 	JWTExpiration time.Duration
 	NatsURL       string
-	PublicURL  string
-	Debug      bool
-	GodotPath  string
-	Eureka     EurekaConfig
-	S3 struct {
+	NatsUser      string
+	NatsPassword  string
+	PublicURL     string
+	Debug         bool
+	GodotPath     string
+	Eureka        EurekaConfig
+	DB            database.Config
+	S3            struct {
 		Endpoint  string
 		AccessKey string
 		SecretKey string
@@ -36,13 +44,26 @@ type Config struct {
 }
 
 func Load() *Config {
+	// Load .env if it exists
+	_ = godotenv.Load()
+
 	cfg := &Config{
+		AppEnv:        getEnv("APP_ENV", "dev"),
 		ServerPort:    getEnv("SERVER_PORT", ":8091"),
 		NatsURL:       getEnv("NATS_URL", "nats://localhost:4222"),
+		NatsUser:      getEnv("NATS_USER", ""),
+		NatsPassword:  getEnv("NATS_PASSWORD", ""),
 		PublicURL:     getEnv("PUBLIC_URL", "http://localhost:8091"),
 		Debug:         getEnv("DEBUG_MODE", "false") == "true",
 		GodotPath:     getEnv("GODOT_PATH", "/usr/local/bin/godot"),
 		JWTExpiration: time.Duration(getEnvInt("JWT_EXPIRATION_MS", 86400000)) * time.Millisecond,
+		DB: database.Config{
+			Host:     getEnv("DB_HOST", "localhost"),
+			Port:     getEnv("DB_PORT", "5432"),
+			User:     getEnv("DB_USER", "postgres"),
+			Password: getEnv("DB_PASSWORD", "postgres"),
+			Name:     getEnv("DB_NAME", "gamelift"),
+		},
 	}
 
 	rawSecret := "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
