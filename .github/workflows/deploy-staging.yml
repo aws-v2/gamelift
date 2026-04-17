@@ -24,7 +24,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: qarani/frontend-server:staging
+        tags: qarani/gamelift-frontend:staging
 
   deploy:
     needs: build-and-push
@@ -45,10 +45,10 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             docker network create aws-staging-network || true
-            docker pull qarani/frontend-server:staging
-            docker stop frontend-staging || true
-            docker rm frontend-staging || true
-            docker run -d --name frontend-staging \
+            docker pull qarani/gamelift-frontend:staging
+            docker stop gamelift-frontend-staging || true
+            docker rm gamelift-frontend-staging || true
+            docker run -d --name gamelift-frontend-staging \
               --network aws-staging-network \
               -p 5173:80 \
               -e VITE_APP_ENV=staging \
