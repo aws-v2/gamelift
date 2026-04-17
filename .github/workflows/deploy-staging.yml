@@ -50,7 +50,7 @@ jobs:
             docker rm gamelift-frontend-staging || true
             docker run -d --name gamelift-frontend-staging \
               --network aws-staging-network \
-              -p 5174:80 \
+              -p 5174:5174 \
               -e VITE_APP_ENV=staging \
               -e APP_ENV=staging \
               -e VITE_APP_PROFILE=staging \
