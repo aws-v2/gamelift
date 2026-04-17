@@ -50,8 +50,7 @@ jobs:
             docker rm gamelift-frontend-staging || true
             docker run -d --name gamelift-frontend-staging \
               --network aws-staging-network \
-              -p 5173:80 \
               -e VITE_APP_ENV=staging \
               -e APP_ENV=staging \
-              -e VITE_APP_PROFILE=staging
-              qarani/frontend-server:staging
+              -e VITE_APP_PROFILE=staging \
+              qarani/gamelift-frontend:staging
