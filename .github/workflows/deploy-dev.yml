@@ -1,0 +1,39 @@
+name: CI - Test and CI to Staging
+
+on:
+  push:
+    branches: [ "gamelift-backend-dev" ]
+
+jobs:
+  test-and-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run CI checks (Build and Test)
+        run: |
+          go build -v ./...
+          go test -v ./...
+
+      - name: Create Pull Request to Staging
+        if: success()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: automated PR from dev to staging"
+          title: "Automated PR: dev -> staging"
+          body: "This is an automated pull request created after successful CI checks on the dev branch."
+          branch: automated-dev-to-staging
+          base: staging

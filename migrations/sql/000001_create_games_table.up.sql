@@ -8,6 +8,7 @@ CREATE TABLE games (
     arn TEXT NOT NULL,
     folder_location TEXT,
     status TEXT NOT NULL,
+    streaming_mode TEXT,
     manifest TEXT,
     storage_arn TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
