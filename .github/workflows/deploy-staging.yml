@@ -51,8 +51,8 @@ jobs:
           docker run -d --name gamelift-backend --network aws-staging-network \
             -p 8080:8080 \
             -e APP_ENV=staging \
-            -e SERVER_PORT=:8080 \
-            -e PUBLIC_URL=http://localhost:8080 \
+            -e SERVER_PORT=:8091 \
+            -e PUBLIC_URL=http://localhost:8071 \
             -e DEBUG_MODE=false \
             -e GODOT_PATH=/usr/local/bin/godot \
             -e JWT_EXPIRATION_MS=86400000 \
