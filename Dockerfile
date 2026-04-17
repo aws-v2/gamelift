@@ -46,9 +46,9 @@ USER appuser
 
 # Default env — override at runtime / in docker-compose / CI
 ENV APP_ENV=production \
-    SERVER_PORT=:8080 \
+    SERVER_PORT=:8091 \
     SQLITE_PATH=/app/gamelift_fallback.db
 
-EXPOSE 8080
+EXPOSE 8091
 
 ENTRYPOINT ["/app/api"]

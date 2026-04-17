@@ -155,7 +155,7 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 	}
 
 	// 8. Notify "Game Ready"
-	a.notifyReady(gameID, 8080)
+	a.notifyReady(gameID, 8091)
 
 	// Keep process running in background
 	go func() {
@@ -185,7 +185,7 @@ func (a *NodeAgent) initializeGame(gameID int, storageARN string, mode domain.St
 	// Simulation of cold start delay
 	time.Sleep(3 * time.Second) 
 
-	a.logger.Infow("Process started for game", "node_id", a.NodeID, "game_id", gameID, "port", 8080)
+	a.logger.Infow("Process started for game", "node_id", a.NodeID, "game_id", gameID, "port", 8091)
 
 	// 4. Update status to Active
 	err := a.gameRepo.UpdateGameStatus(gameID, domain.GameStatusActive, storageARN)
@@ -195,5 +195,5 @@ func (a *NodeAgent) initializeGame(gameID int, storageARN string, mode domain.St
 	}
 
 	// 5. Notify "Game Ready"
-	a.notifyReady(gameID, 8080)
+	a.notifyReady(gameID, 8091)
 }
