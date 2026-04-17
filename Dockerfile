@@ -22,7 +22,7 @@ FROM nginx:stable-alpine AS production-stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
 # Expose port 80
-EXPOSE 80
+EXPOSE 5174
 
 # Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
