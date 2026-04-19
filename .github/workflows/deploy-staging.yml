@@ -67,7 +67,7 @@ jobs:
             -e EUREKA_SERVER_URL=http://discovery-server-staging:8761/eureka \
             -e EUREKA_APP_NAME=gamelift-server \
             -e EUREKA_HOSTNAME=discovery-server-staging \
-            -e EUREKA_IP_ADDR=discovery-server-staging \
+            -e EUREKA_IP_ADDR=127.0.0.1 \
             -e EUREKA_VIP_ADDRESS=gamelift-server \
             -e EUREKA_INSTANCE_ID=gamelift-server \
             -e SERVICE_PORT=8080 \
