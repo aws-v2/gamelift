@@ -1,6 +1,8 @@
 package http
 
 import (
+	"backend/internal/application"
+	"backend/internal/config"
 	"backend/internal/infrastructure/storage"
 	"backend/internal/interfaces"
 	"backend/internal/messaging"
@@ -19,6 +21,7 @@ func NewRouter(
 	provisioningSvc interfaces.ProvisioningService,
 	storage *storage.MinIOAdapter,
 	logger *zap.SugaredLogger,
+	cfg *config.Config,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -37,7 +40,8 @@ func NewRouter(
 	gameHandler := handlers.NewGameHandler(gameSvc, natsClient, provisioningSvc, storage, logger)
 	wsHandler := websocket.NewWebSocketHandler(hub)
 	webrtcHandler := handlers.NewWebRTCSignalingHandler(logger)
-
+	docsSvc := application.NewDocsService(cfg.DocsPath)
+	docsHandler := handlers.NewDocsHandler(docsSvc)
 	// API Group with prefix
 	api := r.Group("/api/v1/gamelift")
 	{
@@ -57,6 +61,18 @@ func NewRouter(
 		// Static assets within the group
 		api.Static("/game_static", "./uploads/games")
 	}
+
+	docs := r.Group("/api/v1/gamelift/docs")
+	{
+		docs.GET("", docsHandler.GetPublicManifest)
+		docs.GET("/:slug", docsHandler.GetPublicDoc)
+	}
+
+	internal := r.Group("/api/v1/internal/docs")
+	{
+		internal.GET("", docsHandler.GetInternalManifest)
+		internal.GET("/:slug", docsHandler.GetInternalDoc)
+	}	
 
 	// Public WebSocket for state-streaming
 	r.GET("/api/v1/ws", wsHandler.Handle) // Direct match for Gateway requests

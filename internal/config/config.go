@@ -41,6 +41,7 @@ type Config struct {
 		SecretKey string
 		UseSSL    bool
 	}
+	DocsPath string
 }
 
 func Load() *Config {
@@ -64,6 +65,7 @@ func Load() *Config {
 			Password: getEnv("DB_PASSWORD", "postgres"),
 			Name:     getEnv("DB_NAME", "gamelift"),
 		},
+		DocsPath: getEnv("DOCS_PATH", "./docs"),
 	}
 
 	rawSecret := "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"

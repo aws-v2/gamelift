@@ -146,7 +146,7 @@ func main() {
 	instanceListener := appNats.NewInstanceLifecycleListener(gameSvc, natsClient, hub, cfg.AppEnv, logr)
 	go instanceListener.Start()
 
-	router := httpRouter.NewRouter(authSvc, gameSvc, hub, natsClient, provisioningSvc, minioAdapter, logr)
+	router := httpRouter.NewRouter(authSvc, gameSvc, hub, natsClient, provisioningSvc, minioAdapter, logr, cfg)
 
 	// --- Graceful Shutdown Setup ---
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
