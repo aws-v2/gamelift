@@ -38,6 +38,8 @@ COPY --from=builder /app/migrations ./migrations
 
 # Copy any static/media assets the app references at startup
 COPY --from=builder /app/media ./media
+COPY --from=builder /app/docs ./docs
+
 
 # Writable directories (uploads & sqlite fallback live here)
 RUN mkdir -p uploads && chown -R appuser:root /app
