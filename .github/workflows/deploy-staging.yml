@@ -85,6 +85,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch target branches  # <-- add this
+        run: |
+          git fetch origin gamelift-backend-main gamelift-backend-staging
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
       - name: Create PR staging → main
         run: |
           if gh pr list --base gamelift-backend-main --head gamelift-backend-staging --state open --json number | jq -e 'length > 0' > /dev/null; then
