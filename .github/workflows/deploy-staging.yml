@@ -85,7 +85,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch target branches  
+      - name: Fetch target branches
         run: |
           git fetch origin gamelift-backend-main gamelift-backend-staging
         env:
