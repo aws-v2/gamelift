@@ -3,37 +3,59 @@ name: CI - Test and CI to Staging
 on:
   push:
     branches: [ "gamelift-backend-dev" ]
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  test-and-pr:
+  build-and-test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version: '1.22'
           cache: true
 
-      - name: Install dependencies
+      - name: Install libvirt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvirt-dev \
+            libvirt-daemon \
+            pkg-config
+
+      - name: Download dependencies
         run: go mod download
 
-      - name: Run CI checks (Build and Test)
-        run: |
-          go build -v ./...
-          go test -v ./...
+      - name: Build
+        run: go build ./...
 
-      - name: Create Pull Request to Staging
-        if: success()
-        uses: peter-evans/create-pull-request@v6
+      - name: Run tests
+        run: go test ./... -v
+
+  open-pr-to-staging:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: automated PR from dev to staging"
-          title: "Automated PR: dev -> staging"
-          body: "This is an automated pull request created after successful CI checks on the dev branch."
-          branch: automated-dev-to-staging
-          base: staging
+          fetch-depth: 0
+
+      - name: Create PR dev → staging
+        run: |
+          if gh pr list --base gamelift-backend-staging --head gamelift-backend-dev --state open --json number | jq -e 'length > 0' > /dev/null; then
+            echo "PR already exists. Skipping..."
+          else
+            gh pr create \
+              --base gamelift-backend-staging \
+              --head gamelift-backend-dev \
+              --title "chore: promote dev → staging" \
+              --body "✅ All tests passed on dev. Auto-generated PR."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
