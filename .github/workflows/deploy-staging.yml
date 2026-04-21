@@ -87,12 +87,12 @@ jobs:
 
       - name: Create PR staging → main
         run: |
-          if gh pr list --base main --head staging --state open --json number | jq -e 'length > 0' > /dev/null; then
+          if gh pr list --base gamelift-backend-main --head gamelift-backend-staging --state open --json number | jq -e 'length > 0' > /dev/null; then
             echo "PR already exists. Skipping..."
           else
             gh pr create \
-              --base main \
-              --head staging \
+              --base gamelift-backend-main \
+              --head gamelift-backend-staging \
               --title "chore: promote staging → main" \
               --body "✅ Staging deployment succeeded. Auto-generated PR for production release."
           fi
