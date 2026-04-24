@@ -42,6 +42,7 @@ type Config struct {
 		UseSSL    bool
 	}
 	DocsPath string
+	NatsPrefix string
 }
 
 func Load() *Config {
@@ -52,8 +53,8 @@ func Load() *Config {
 		AppEnv:        getEnv("APP_ENV", "dev"),
 		ServerPort:    getEnv("SERVER_PORT", ":8091"),
 		NatsURL:       getEnv("NATS_URL", "nats://localhost:4222"),
-		NatsUser:      getEnv("NATS_USER", ""),
-		NatsPassword:  getEnv("NATS_PASSWORD", ""),
+		NatsUser:      getEnv("NATS_USER", "auth-server"),
+		NatsPassword:  getEnv("NATS_PASSWORD", "auth-secret"),
 		PublicURL:     getEnv("PUBLIC_URL", "http://localhost:8091"),
 		Debug:         getEnv("DEBUG_MODE", "false") == "true",
 		GodotPath:     getEnv("GODOT_PATH", "/usr/local/bin/godot"),
@@ -66,6 +67,7 @@ func Load() *Config {
 			Name:     getEnv("DB_NAME", "gamelift"),
 		},
 		DocsPath: getEnv("DOCS_PATH", "./docs"),
+		NatsPrefix: getEnv("NATS_PREFIX", "dev.v1"),	
 	}
 
 	rawSecret := "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
@@ -113,3 +115,4 @@ func getEnvInt(key string, fallback int) int {
 	}
 	return fallback
 }
+

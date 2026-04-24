@@ -63,7 +63,7 @@ func main() {
 	defer nc.Close()
 	logr.Infow("Successfully connected to NATS", "url", cfg.NatsURL)
 
-	natsClient := messaging.NewNatsClient(nc, logr)
+	natsClient := messaging.NewNatsClient(nc, logr, cfg.NatsPrefix)
 
 	var db *database.DB
 	for attempt := 1; attempt <= 4; attempt++ {

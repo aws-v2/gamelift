@@ -26,19 +26,28 @@ func (s Subject) String() string {
 type NatsClient struct {
 	nc     *nats.Conn
 	logger *zap.SugaredLogger
+	prefix string
 }
 
-// NewNatsClient creates a new NATS client with an established connection and logger.
-func NewNatsClient(nc *nats.Conn, logger *zap.SugaredLogger) *NatsClient {
+// NewNatsClient creates a new NATS client with an established connection, logger and subject prefix.
+func NewNatsClient(nc *nats.Conn, logger *zap.SugaredLogger, prefix string) *NatsClient {
 	return &NatsClient{
 		nc:     nc,
 		logger: logger,
+		prefix: prefix,
 	}
+}
+
+func (c *NatsClient) formatSubject(subject Subject) string {
+	if c.prefix != "" {
+		return fmt.Sprintf("%s.%s", c.prefix, subject.String())
+	}
+	return subject.String()
 }
 
 // Publish enforces the structured subject scheme for publishing messages.
 func (c *NatsClient) Publish(subject Subject, data []byte) error {
-	subjStr := subject.String()
+	subjStr := c.formatSubject(subject)
 	c.logger.Infow("NATS Publish", "subject", subjStr, "bytes", len(data))
 	if c.nc != nil {
 		return c.nc.Publish(subjStr, data)
@@ -48,7 +57,7 @@ func (c *NatsClient) Publish(subject Subject, data []byte) error {
 
 // Subscribe enforces the structured subject scheme for consuming messages.
 func (c *NatsClient) Subscribe(subject Subject, handler nats.MsgHandler) (*nats.Subscription, error) {
-	subjStr := subject.String()
+	subjStr := c.formatSubject(subject)
 	c.logger.Infow("NATS Subscribe", "subject", subjStr)
 	if c.nc != nil {
 		return c.nc.Subscribe(subjStr, handler)
@@ -58,7 +67,7 @@ func (c *NatsClient) Subscribe(subject Subject, handler nats.MsgHandler) (*nats.
 
 // Request enforces the structured subject scheme for request-reply patterns.
 func (c *NatsClient) Request(subject Subject, data []byte, timeout time.Duration) (*nats.Msg, error) {
-	subjStr := subject.String()
+	subjStr := c.formatSubject(subject)
 	c.logger.Infow("NATS Request", "subject", subjStr, "bytes", len(data))
 	if c.nc != nil {
 		return c.nc.Request(subjStr, data, timeout)
