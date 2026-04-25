@@ -48,9 +48,10 @@ func (h *Hub) Run() {
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
+			count := len(h.clients)
 			h.mu.Unlock()
-			h.mu.Unlock()
-			h.logger.Infow("New client connected", "total_clients", len(h.clients))
+
+			h.logger.Infow("New client connected", "total_clients", count)
 		case client := <-h.unregister:
 			h.mu.Lock()
 			if _, ok := h.clients[client]; ok {
@@ -83,6 +84,7 @@ func NewWebSocketHandler(hub *Hub) *WebSocketHandler {
 }
 
 func (h *WebSocketHandler) Handle(c *gin.Context) {
+	h.hub.logger.Infow("WebSocket connection requested", "client", fmt.Sprintf("%p", c))
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		h.hub.logger.Errorw("WebSocket upgrade failed", "error", err)
