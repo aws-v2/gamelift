@@ -112,7 +112,7 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 
 	response.SendSuccess(c, http.StatusOK, "Upload initialized. Please upload your ZIP to S3.", domain.InitUploadResponse{
 		GameID:    game.ID,
-		UploadURL: natsResp.UploadURL,
+		UploadURL: "http://localhost:8080"+natsResp.UploadURL,
 		ARN:        game.ARN,
 	})
 }

@@ -64,7 +64,9 @@ func (c *NatsClient) Subscribe(subject Subject, handler nats.MsgHandler) (*nats.
 
 // Request enforces the structured subject scheme for request-reply patterns.
 func (c *NatsClient) Request(subject Subject, data []byte, timeout time.Duration) (*nats.Msg, error) {
-	subjStr := c.formatSubject(subject)
+	// subjStr := c.formatSubject(subject)
+	subjStr := fmt.Sprintf("%s.%s.%s", c.prefix, subject.Service, subject.ActionType)
+	
 	c.logger.Infow("NATS Request", "subject", subjStr, "bytes", len(data))
 	if c.nc != nil {
 		return c.nc.Request(subjStr, data, timeout)
