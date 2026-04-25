@@ -53,3 +53,13 @@ func GetGameReadySubject() Subject {
 		ActionType: "ready",
 	}
 }
+
+
+// GetFinishedS3UploadSubject returns the subject for completed S3 upload processing.
+func GetFinishedS3UploadSubject() Subject {
+	return Subject{
+		Service:    "s3",
+		Domain:     "game",
+		ActionType: "stored",
+	}
+}

@@ -44,39 +44,88 @@ func NewNodeAgent(nodeID string, gameRepo interfaces.GameRepository, natsClient 
 }
 
 func (a *NodeAgent) Start() {
-	subj := messaging.GetProvisionGameSubject()
+	fmt.Println("Node Agent started")
 
-	_, err := a.natsClient.Subscribe(subj, func(msg *nats.Msg) {
-		var payload domain.ProvisionGameRequest
+	// ================================
+	// 1. LISTEN FOR PROVISION REQUESTS
+	// ================================
+	provisionSubj := messaging.GetProvisionGameSubject()
 
-		if err := json.Unmarshal(msg.Data, &payload); err != nil {
-			a.logger.Errorw("Failed to unmarshal provisioning request", "error", err)
-			return
-		}
+	_, err := a.natsClient.Subscribe(provisionSubj, func(msg *nats.Msg) {
+		a.handleProvision(msg)
+	})
+	if err != nil {
+		a.logger.Fatalf("Failed to subscribe to provisioning topic", "error", err)
+	}
 
-		// Only handle requests for this specific node
-		if payload.TargetNode != a.NodeID {
-			return
-		}
+	// ======================================
+	// 2. LISTEN FOR FINISHED S3 UPLOAD EVENTS
+	// ======================================
+	uploadSubj := messaging.GetFinishedS3UploadSubject()
 
-		a.logger.Infow("Provisioning request received", "node_id", a.NodeID, "game_id", payload.GameID)
+	_, err = a.natsClient.Subscribe(uploadSubj, func(msg *nats.Msg) {
+		a.handleFinishedUpload(msg)
+	})
+	if err != nil {
+		a.logger.Fatalf("Failed to subscribe to finished upload topic", "error", err)
+	}
+}
 
-		// Simulating the Initialization Layer:
-		// 1. Download artifact from S3 (StorageARN)
-		// 2. Unzip & Setup Env
-	// 3. Launch Process (Godot Headless)
+func (a *NodeAgent) handleProvision(msg *nats.Msg) {
+	var payload domain.ProvisionGameRequest
+
+	if err := json.Unmarshal(msg.Data, &payload); err != nil {
+		a.logger.Errorw("Failed to unmarshal provisioning request", "error", err)
+		return
+	}
+
+	// Only handle requests for this node
+	if payload.TargetNode != a.NodeID {
+		return
+	}
+
+	a.logger.Infow("Provisioning request received",
+		"node_id", a.NodeID,
+		"game_id", payload.GameID,
+	)
+
 	if a.debug {
 		go a.initializeGameDebug(payload.GameID, payload.StorageARN, payload.StreamingMode)
 	} else {
 		go a.initializeGame(payload.GameID, payload.StorageARN, payload.StreamingMode)
 	}
-})
-
-	if err != nil {
-		a.logger.Fatalf("Failed to subscribe to provisioning topic", "error", err)
-	}
 }
 
+func (a *NodeAgent) handleFinishedUpload(msg *nats.Msg) {
+	var payload struct {
+		GameID     int    `json:"game_id"`
+		StorageARN string `json:"storage_arn"`
+	}
+
+	if err := json.Unmarshal(msg.Data, &payload); err != nil {
+		a.logger.Errorw("Failed to unmarshal finished upload event", "error", err)
+		return
+	}
+
+	a.logger.Infow("S3 upload completed, triggering provisioning",
+		"game_id", payload.GameID,
+	)
+
+	// Build provisioning request
+	provision := domain.ProvisionGameRequest{
+		GameID:        payload.GameID,
+		StorageARN:    payload.StorageARN,
+		TargetNode:    a.NodeID,
+		StreamingMode: "default",
+	}
+
+	// Reuse same flow
+	data, _ := json.Marshal(provision)
+
+	a.handleProvision(&nats.Msg{
+		Data: data,
+	})
+}
 func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode domain.StreamingMode) {
 	a.logger.Infow("Starting debug local execution", "node_id", a.NodeID, "game_id", gameID)
 
