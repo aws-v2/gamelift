@@ -37,7 +37,6 @@ COPY --from=builder /app/bin/api .
 COPY --from=builder /app/migrations ./migrations
 
 # Copy any static/media assets the app references at startup
-COPY --from=builder /app/media ./media
 COPY --from=builder /app/docs ./docs
 
 

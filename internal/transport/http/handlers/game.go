@@ -74,10 +74,12 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 
 	// 2. Database Initialization (PENDING record)
 	game, err := h.gameSvc.InitUpload(req.GameName, req.VMID, userID)
+	fmt.Println("game----------------------1", game)
 	if err != nil {
 		response.SendAppError(c, err)
 		return
 	}
+	fmt.Println("game----------------------12")
 
 	// Store manifest early
 	manifestJSON, _ := json.Marshal(req.Manifest)
@@ -110,6 +112,10 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 
 	h.logger.Infow("User initiated upload", "user_id", userID, "game_name", req.GameName, "upload_url", natsResp.UploadURL)
 
+
+
+
+	
 	response.SendSuccess(c, http.StatusOK, "Upload initialized. Please upload your ZIP to S3.", domain.InitUploadResponse{
 		GameID:    game.ID,
 		UploadURL: "http://localhost:8080"+natsResp.UploadURL,
