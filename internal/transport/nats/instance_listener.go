@@ -39,7 +39,7 @@ func NewInstanceLifecycleListener(
 // (Event moved to domain.InstanceLifecycleEvent)
 
 func (l *InstanceLifecycleListener) Start() {
-	subj := messaging.GetInstanceLifecycleSubject(l.appEnv)
+	subj := messaging.GetInstanceLifecycleSubject()
 
 	_, err := l.natsClient.Subscribe(subj, func(msg *nats.Msg) {
 		var event domain.InstanceLifecycleEvent

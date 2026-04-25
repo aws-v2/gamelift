@@ -37,7 +37,7 @@ func NewRouter(
 	*/
 
 	authHandler := handlers.NewAuthHandler(authSvc, logger)
-	gameHandler := handlers.NewGameHandler(gameSvc, natsClient, provisioningSvc, storage, logger)
+	gameHandler := handlers.NewGameHandler(gameSvc, natsClient, provisioningSvc, storage, logger, cfg.NatsPrefix)
 	wsHandler := websocket.NewWebSocketHandler(hub)
 	webrtcHandler := handlers.NewWebRTCSignalingHandler(logger)
 	docsSvc := application.NewDocsService(cfg.DocsPath)

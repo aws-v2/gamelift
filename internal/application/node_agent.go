@@ -44,7 +44,7 @@ func NewNodeAgent(nodeID string, gameRepo interfaces.GameRepository, natsClient 
 }
 
 func (a *NodeAgent) Start() {
-	subj := messaging.GetProvisionGameSubject(a.appEnv)
+	subj := messaging.GetProvisionGameSubject()
 
 	_, err := a.natsClient.Subscribe(subj, func(msg *nats.Msg) {
 		var payload domain.ProvisionGameRequest
@@ -166,7 +166,7 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 }
 
 func (a *NodeAgent) notifyReady(gameID int, port int) {
-	readySubj := messaging.GetGameReadySubject(a.appEnv)
+	readySubj := messaging.GetGameReadySubject()
 
 	readyPayload := domain.GameReadyEvent{
 		GameID: gameID,

@@ -9,19 +9,16 @@ import (
 )
 
 // Subject represents the strict naming scheme: <env>.<service>.<version>.<domain>.<action_type>
+
 type Subject struct {
-	Env        string // e.g., dev, staging, prod
-	Service    string // e.g., auth, s3, iam, lambda, backend
-	Version    string // e.g., v1, v2
-	Domain     string // e.g., user, game, token
-	ActionType string // e.g., created, updated, join
+	Service    string // s3, auth, iam
+	Domain     string // bucket, user, token
+	ActionType string // create_presigned_url, get_download_url
 }
 
-// String builds the formatted NATS subject string.
 func (s Subject) String() string {
-	return fmt.Sprintf("%s.%s.%s.%s.%s", s.Env, s.Service, s.Version, s.Domain, s.ActionType)
+	return fmt.Sprintf("%s.%s.%s", s.Service, s.Domain, s.ActionType)
 }
-
 // NatsClient wrapper for structured messaging.
 type NatsClient struct {
 	nc     *nats.Conn

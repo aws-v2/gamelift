@@ -25,6 +25,7 @@ type GameHandler struct {
 	provisioningSvc interfaces.ProvisioningService
 	storage         *storage.MinIOAdapter
 	logger          *zap.SugaredLogger
+	natsPrefix		string
 }
 
 func NewGameHandler(
@@ -33,6 +34,7 @@ func NewGameHandler(
 	provisioningSvc interfaces.ProvisioningService,
 	storage *storage.MinIOAdapter,
 	logger *zap.SugaredLogger,
+	natsPrefix string,
 ) *GameHandler {
 	return &GameHandler{
 		gameSvc:         gameSvc,
@@ -40,6 +42,7 @@ func NewGameHandler(
 		provisioningSvc: provisioningSvc,
 		storage:         storage,
 		logger:          logger,
+		natsPrefix: natsPrefix,
 	}
 }
 
@@ -82,10 +85,8 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 
 	// 3. Request Presigned S3 URL via NATS
 	subj := messaging.Subject{
-		Env:        "dev",
-		Service:    "api",
-		Version:    "v1",
-		Domain:     "s3",
+		Service:    "s3",
+		Domain:     "bucket",
 		ActionType: "create_presigned_url",
 	}
 	payload := map[string]interface{}{

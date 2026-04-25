@@ -27,7 +27,7 @@ func NewGameStateListener(natsClient interfaces.MessagingClient, hub *websocket.
 
 func (l *GameStateListener) Start() {
 	// 1. Listen for any game state updates from Godot instances (NATS)
-	subj := messaging.GetGameStateBroadcastSubject(l.appEnv)
+	subj := messaging.GetGameStateBroadcastSubject()
 
 	_, err := l.natsClient.Subscribe(subj, func(msg *nats.Msg) {
 		l.logger.Debugw("Relaying Godot State", "bytes", len(msg.Data))

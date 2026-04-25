@@ -52,7 +52,7 @@ func NewS3Listener(
 }
 
 func (l *S3Listener) Start() {
-	subj := messaging.GetS3StoredSubject(l.appEnv)
+	subj := messaging.GetS3StoredSubject()
 
 	_, err := l.natsClient.Subscribe(subj, func(msg *nats.Msg) {
 		l.logger.Debugw("Received S3 message", "data", string(msg.Data))
@@ -125,7 +125,7 @@ func (l *S3Listener) Start() {
 			}
 
 			// 6. Trigger Specialized EC2 Service for VM Commissioning
-			ec2Subj := messaging.GetEC2ProvisionSubject(l.appEnv)
+			ec2Subj := messaging.GetEC2ProvisionSubject()
 			ec2Payload := domain.EC2ProvisionRequest{
 				Profile: "gamelift",
 				Specs: map[string]int{
