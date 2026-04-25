@@ -63,3 +63,12 @@ func GetFinishedS3UploadSubject() Subject {
 		ActionType: "stored",
 	}
 }
+
+// GetEC2InstanceLifecycleSubject returns the subject for EC2 instance lifecycle events.
+func GetEC2InstanceLifecycleSubject() Subject {
+	return Subject{
+		Service:    "ec2",
+		Domain:     "instance",
+		ActionType: "lifecycle",
+	}
+}
