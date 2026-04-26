@@ -76,7 +76,7 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 	}
 
 	// 3. Publish Provisioning Event to EC2 Service
-	subj := messaging.GetEC2ProvisionSubject(s.appEnv)
+	subj := messaging.GetEC2ProvisionSubject()
 
 	var manifest domain.GameManifest
 	json.Unmarshal([]byte(game.Manifest), &manifest)

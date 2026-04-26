@@ -23,8 +23,8 @@ func NewPostgresGameRepository(db *database.DB, logger *zap.SugaredLogger) *Post
 
 func (r *PostgresGameRepository) ListGames() ([]domain.Game, error) {
 	var games []domain.Game
-	// List games that are either running (active) or ready to be provisioned (stored)
-	err := r.db.GORM.Where("status IN ?", []domain.GameStatus{domain.GameStatusActive, domain.GameStatusStored}).Find(&games).Error
+
+	err := r.db.GORM.Find(&games).Error
 	return games, err
 }
 

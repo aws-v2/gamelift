@@ -20,7 +20,7 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build and push.
+    - name: Build and push
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -63,6 +63,7 @@ jobs:
             -e NATS_URL=nats://nats-staging:4222 \
             -e NATS_USER=nats-staging-user \
             -e NATS_PASSWORD=nats-staging-password \
+            -e NATS_PREFIX=staging.v1 \
             -e EUREKA_SERVER_URL=http://discovery-server-staging:8761/eureka \
             -e EUREKA_APP_NAME=GAMELIFT-SERVER \
             -e EUREKA_HOSTNAME=gamelift-backend \

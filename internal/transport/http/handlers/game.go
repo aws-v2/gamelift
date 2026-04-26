@@ -25,6 +25,7 @@ type GameHandler struct {
 	provisioningSvc interfaces.ProvisioningService
 	storage         *storage.MinIOAdapter
 	logger          *zap.SugaredLogger
+	natsPrefix		string
 }
 
 func NewGameHandler(
@@ -33,6 +34,7 @@ func NewGameHandler(
 	provisioningSvc interfaces.ProvisioningService,
 	storage *storage.MinIOAdapter,
 	logger *zap.SugaredLogger,
+	natsPrefix string,
 ) *GameHandler {
 	return &GameHandler{
 		gameSvc:         gameSvc,
@@ -40,6 +42,7 @@ func NewGameHandler(
 		provisioningSvc: provisioningSvc,
 		storage:         storage,
 		logger:          logger,
+		natsPrefix: natsPrefix,
 	}
 }
 
@@ -71,10 +74,12 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 
 	// 2. Database Initialization (PENDING record)
 	game, err := h.gameSvc.InitUpload(req.GameName, req.VMID, userID)
+	fmt.Println("game----------------------1", game)
 	if err != nil {
 		response.SendAppError(c, err)
 		return
 	}
+	fmt.Println("game----------------------12")
 
 	// Store manifest early
 	manifestJSON, _ := json.Marshal(req.Manifest)
@@ -82,10 +87,8 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 
 	// 3. Request Presigned S3 URL via NATS
 	subj := messaging.Subject{
-		Env:        "dev",
-		Service:    "api",
-		Version:    "v1",
-		Domain:     "s3",
+		Service:    "s3",
+		Domain:     "bucket",
 		ActionType: "create_presigned_url",
 	}
 	payload := map[string]interface{}{
@@ -109,9 +112,13 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 
 	h.logger.Infow("User initiated upload", "user_id", userID, "game_name", req.GameName, "upload_url", natsResp.UploadURL)
 
+
+
+
+	
 	response.SendSuccess(c, http.StatusOK, "Upload initialized. Please upload your ZIP to S3.", domain.InitUploadResponse{
 		GameID:    game.ID,
-		UploadURL: natsResp.UploadURL,
+		UploadURL: "http://localhost:8080"+natsResp.UploadURL,
 		ARN:        game.ARN,
 	})
 }

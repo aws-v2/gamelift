@@ -52,8 +52,8 @@ func NewS3Listener(
 }
 
 func (l *S3Listener) Start() {
-	subj := messaging.GetS3StoredSubject(l.appEnv)
-
+	// Subscribe to S3 stored events
+	subj := messaging.GetS3StoredSubject()
 	_, err := l.natsClient.Subscribe(subj, func(msg *nats.Msg) {
 		l.logger.Debugw("Received S3 message", "data", string(msg.Data))
 		var payload domain.S3StoredEvent
@@ -100,7 +100,7 @@ func (l *S3Listener) Start() {
 				return
 			}
 
-			// 4. Validate
+			// 3. Validate
 			var manifest domain.GameManifest
 			json.Unmarshal([]byte(game.Manifest), &manifest)
 
@@ -116,7 +116,7 @@ func (l *S3Listener) Start() {
 				return
 			}
 
-			// 5. Finalize
+			// 4. Finalize
 			l.logger.Infow("Validation passed! Finalizing game", "game_id", payload.GameID)
 			err = l.gameRepo.UpdateGameStatus(payload.GameID, domain.GameStatusStored, payload.StorageARN)
 			if err != nil {
@@ -124,8 +124,8 @@ func (l *S3Listener) Start() {
 				return
 			}
 
-			// 6. Trigger Specialized EC2 Service for VM Commissioning
-			ec2Subj := messaging.GetEC2ProvisionSubject(l.appEnv)
+			// 5. Trigger Specialized EC2 Service for VM Commissioning
+			ec2Subj := messaging.GetEC2ProvisionSubject()
 			ec2Payload := domain.EC2ProvisionRequest{
 				Profile: "gamelift",
 				Specs: map[string]int{
@@ -146,9 +146,17 @@ func (l *S3Listener) Start() {
 			l.logger.Infow("Triggered EC2 Provisioning", "game_id", payload.GameID, "game_name", game.Name)
 		}
 	})
-
 	if err != nil {
 		l.logger.Fatalf("Failed to subscribe to NATS", "error", err)
+	}
+
+	// Subscribe to EC2 instance lifecycle events
+	lifecycleSubj := messaging.GetEC2InstanceLifecycleSubject()
+	_, err = l.natsClient.Subscribe(lifecycleSubj, func(msg *nats.Msg) {
+		l.handleInstanceLifecycle(msg)
+	})
+	if err != nil {
+		l.logger.Fatalf("Failed to subscribe to lifecycle topic", "error", err)
 	}
 }
 
@@ -167,4 +175,29 @@ func (l *S3Listener) downloadFile(url, dest string) error {
 
 	_, err = io.Copy(out, resp.Body)
 	return err
+}
+
+func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
+	l.logger.Debugw("Received lifecycle message", "raw", string(msg.Data))
+
+	var payload struct {
+		InstanceID string `json:"instance_id"`
+		EventType  string `json:"event_type"`
+		Stage      string `json:"stage"`
+		Message    string `json:"message"`
+		Timestamp  string `json:"timestamp"`
+	}
+
+	if err := json.Unmarshal(msg.Data, &payload); err != nil {
+		l.logger.Errorw("Failed to unmarshal lifecycle event", "error", err)
+		return
+	}
+
+	l.logger.Infow("EC2 Lifecycle Event",
+		"instance_id", payload.InstanceID,
+		"event_type", payload.EventType,
+		"stage", payload.Stage,
+		"message", payload.Message,
+		"timestamp", payload.Timestamp,
+	)
 }
