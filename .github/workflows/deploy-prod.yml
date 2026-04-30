@@ -77,38 +77,38 @@ jobs:
             docker network create aws-prod-network || true
             docker pull qarani/gamelift-backend:prod
             docker stop gamelift-backend-prod || true
-            docker rm gamelift-backend-prod || true
-            docker run -d \
+            docker service rm gamelift-backend-prod || true
+
+            docker service create \
               --name gamelift-backend-prod \
               --network aws-prod-network \
-              -p 8091:8091 \
-              -e APP_ENV=prod \
-              -e SERVER_PORT=:8091 \
-              -e DEBUG_MODE=false \
-              -e GODOT_PATH=/usr/local/bin/godot \
-              -e JWT_EXPIRATION_MS=86400000 \
-              -e DB_HOST=postgres-prod \
-              -e DB_PORT=5432 \
-              -e DB_USER=postgres-prod-user \
-              -e DB_PASSWORD=postgres-prod-password \
-              -e DB_NAME=gamelift_db \
-              -e NATS_URL=nats://nats-prod:4222 \
-              -e NATS_USER=nats-prod-user \
-              -e NATS_PASSWORD=nats-prod-password \
-              -e EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
-              -e EUREKA_APP_NAME=GAMELIFT-SERVER \
-              -e EUREKA_HOSTNAME=gamelift-backend \
-              -e EUREKA_IP_ADDR=gamelift-backend \
-              -e EUREKA_VIP_ADDRESS=gamelift-server \
-              -e EUREKA_INSTANCE_ID=gamelift-server:8091 \
-              -e EUREKA_HEARTBEAT_INTERVAL=30s \
-              -e S3_ENDPOINT=minio-prod:9000 \
-              -e S3_ACCESS_KEY=minio-prod-user \
-              -e S3_SECRET_KEY=minio-prod-password \
-              -e S3_USE_SSL=false \
-              -e SQLITE_PATH=gamelift_fallback.db \
+              --publish published=8091,target=8091 \
+              --env APP_ENV=prod \
+              --env SERVER_PORT=:8091 \
+              --env DEBUG_MODE=false \
+              --env GODOT_PATH=/usr/local/bin/godot \
+              --env JWT_EXPIRATION_MS=86400000 \
+              --env DB_HOST=postgres-prod \
+              --env DB_PORT=5432 \
+              --env DB_USER=postgres-prod-user \
+              --env DB_PASSWORD=postgres-prod-password \
+              --env DB_NAME=gamelift_db \
+              --env NATS_URL=nats://nats-prod:4222 \
+              --env NATS_USER=nats-prod-user \
+              --env NATS_PASSWORD=nats-prod-password \
+              --env EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
+              --env EUREKA_APP_NAME=GAMELIFT-SERVER \
+              --env EUREKA_HOSTNAME=gamelift-backend \
+              --env EUREKA_IP_ADDR=gamelift-backend \
+              --env EUREKA_VIP_ADDRESS=gamelift-server \
+              --env EUREKA_INSTANCE_ID=gamelift-server:8091 \
+              --env EUREKA_HEARTBEAT_INTERVAL=30s \
+              --env S3_ENDPOINT=minio-prod:9000 \
+              --env S3_ACCESS_KEY=minio-prod-user \
+              --env S3_SECRET_KEY=minio-prod-password \
+              --env S3_USE_SSL=false \
+              --env SQLITE_PATH=gamelift_fallback.db \
               qarani/gamelift-backend:prod
-
 
 
 
