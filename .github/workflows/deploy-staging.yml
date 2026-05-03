@@ -126,8 +126,8 @@ jobs:
             echo "PR already exists. Skipping..."
           else
             gh pr create \
-              --base gamelift-backend-main \
-              --head gamelift-backend-staging \
+              --base main \
+              --head staging \
               --title "chore: promote staging → main" \
               --body "✅ Staging deployment succeeded. Auto-generated PR for production release."
           fi
