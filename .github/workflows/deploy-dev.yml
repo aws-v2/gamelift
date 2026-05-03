@@ -1,4 +1,4 @@
-name: Dev CI Pipeline
+name: Dev CI
 
 on:
   push:
@@ -71,12 +71,12 @@ jobs:
 
       - name: Create PR dev → staging
         run: |
-          if gh pr list --base gamelift-backend-staging --head gamelift-backend-dev --state open --json number | jq -e 'length > 0' > /dev/null; then
+          if gh pr list --base staging --head dev --state open --json number | jq -e 'length > 0' > /dev/null; then
             echo "PR already exists. Skipping..."
           else
             gh pr create \
-              --base gamelift-backend-staging \
-              --head gamelift-backend-dev \
+              --base staging \
+              --head dev \
               --title "chore: promote dev → staging" \
               --body "✅ All tests passed on dev. Auto-generated PR."
           fi

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"backend/pkg/database"
@@ -48,11 +49,16 @@ type Config struct {
 func Load() *Config {
 	// Load .env if it exists
 	_ = godotenv.Load()
+	port := getEnv("SERVER_PORT", ":8091")
+	if !strings.HasPrefix(port, ":") {
+	port = ":" + port
+}
+	
 
 	cfg := &Config{
 		AppEnv:        getEnv("APP_ENV", "dev"),
-		ServerPort:    getEnv("SERVER_PORT", ":8091"),
-		NatsURL:       getEnv("NATS_URL", "nats://localhost:4222"),
+		ServerPort:    port,
+		NatsURL:       getEnv("NATS_URL", "nats://nats-prod:4222"),
 		NatsUser:      getEnv("NATS_USER", "auth-server"),
 		NatsPassword:  getEnv("NATS_PASSWORD", "auth-secret"),
 		PublicURL:     getEnv("PUBLIC_URL", "http://localhost:8091"),
