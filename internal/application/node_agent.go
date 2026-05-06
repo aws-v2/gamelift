@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"backend/internal/domain"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
 	"backend/internal/infrastructure/storage"
-	"backend/internal/interfaces"
-	"backend/internal/messaging"
 
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
@@ -21,8 +21,8 @@ import (
 
 type NodeAgent struct {
 	NodeID     string
-	gameRepo   interfaces.GameRepository
-	natsClient interfaces.MessagingClient
+	gameRepo   repository.GameRepository
+	natsClient repository.MessagingClient
 	storage    *storage.MinIOAdapter
 	debug      bool
 	godotPath  string
@@ -30,7 +30,7 @@ type NodeAgent struct {
 	logger     *zap.SugaredLogger
 }
 
-func NewNodeAgent(nodeID string, gameRepo interfaces.GameRepository, natsClient interfaces.MessagingClient, storage *storage.MinIOAdapter, debug bool, godotPath string, appEnv string, logger *zap.SugaredLogger) *NodeAgent {
+func NewNodeAgent(nodeID string, gameRepo repository.GameRepository, natsClient repository.MessagingClient, storage *storage.MinIOAdapter, debug bool, godotPath string, appEnv string, logger *zap.SugaredLogger) *NodeAgent {
 	return &NodeAgent{
 		NodeID:     nodeID,
 		gameRepo:   gameRepo,
@@ -160,7 +160,7 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 	}
 
 	// 5. Get Manifest to find HeadlessBin
-	game, _ := a.gameRepo.GetGame(gameID)
+	game, _ := a.gameRepo.GetGame(context.Background(), uint(gameID))
 	var manifest domain.GameManifest
 	json.Unmarshal([]byte(game.Manifest), &manifest)
 
@@ -197,7 +197,7 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 	a.logger.Infow("Process started", "node_id", a.NodeID, "pid", cmd.Process.Pid)
 
 	// 7. Update status to Active
-	err := a.gameRepo.UpdateGameStatus(gameID, domain.GameStatusActive, storageARN)
+	err := a.gameRepo.UpdateGameStatus(context.Background(), uint(gameID), domain.GameStatusActive)
 	if err != nil {
 		a.logger.Errorw("Failed to finalize status", "node_id", a.NodeID, "error", err)
 		return
@@ -210,7 +210,7 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 	go func() {
 		cmd.Wait()
 		a.logger.Infow("Game process exited", "node_id", a.NodeID, "game_id", gameID)
-		a.gameRepo.UpdateGameStatus(gameID, domain.GameStatusStored, storageARN)
+		a.gameRepo.UpdateGameStatus(context.Background(), uint(gameID), domain.GameStatusStored)
 	}()
 }
 
@@ -237,7 +237,7 @@ func (a *NodeAgent) initializeGame(gameID int, storageARN string, mode domain.St
 	a.logger.Infow("Process started for game", "node_id", a.NodeID, "game_id", gameID, "port", 8091)
 
 	// 4. Update status to Active
-	err := a.gameRepo.UpdateGameStatus(gameID, domain.GameStatusActive, storageARN)
+	err := a.gameRepo.UpdateGameStatus(context.Background(), uint(gameID), domain.GameStatusActive)
 	if err != nil {
 		a.logger.Errorw("Failed to finalize status", "node_id", a.NodeID, "game_id", gameID, "error", err)
 		return

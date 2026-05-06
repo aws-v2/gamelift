@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	"backend/internal/domain"
-	"backend/internal/interfaces"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
 	"backend/internal/infrastructure/storage"
-	"backend/internal/messaging"
+
 	"context"
 	"os"
 	"os/exec"
@@ -19,8 +20,8 @@ import (
 )
 
 type ProvisioningService struct {
-	gameRepo   interfaces.GameRepository
-	natsClient interfaces.MessagingClient
+	gameRepo   repository.GameRepository
+	natsClient repository.MessagingClient
 	storage    *storage.MinIOAdapter
 	debug      bool
 	godotPath  string
@@ -30,8 +31,8 @@ type ProvisioningService struct {
 }
 
 func NewProvisioningService(
-	gameRepo interfaces.GameRepository,
-	natsClient interfaces.MessagingClient,
+	gameRepo repository.GameRepository,
+	natsClient repository.MessagingClient,
 	storage *storage.MinIOAdapter,
 	debug bool,
 	godotPath string,
@@ -53,7 +54,7 @@ func NewProvisioningService(
 
 // ProvisionGame triggers the on-demand startup of a stored game.
 func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMode) error {
-	game, err := s.gameRepo.GetGame(gameID)
+	game, err := s.gameRepo.GetGame(context.Background(), uint(gameID))
 	if err != nil {
 		return err
 	}
@@ -64,7 +65,7 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 	}
 
 	// 1. Update status to Provisioning to prevent duplicate requests
-	err = s.gameRepo.UpdateGameStatus(gameID, domain.GameStatusProvisioning, game.StorageARN)
+	err = s.gameRepo.UpdateGameStatus(context.Background(), uint(gameID), domain.GameStatusProvisioning)
 	if err != nil {
 		return err
 	}
@@ -169,5 +170,5 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	}
 
 	// Finalize Status
-	s.gameRepo.UpdateGameStatus(game.ID, domain.GameStatusActive, game.StorageARN)
+	s.gameRepo.UpdateGameStatus(context.Background(), uint(game.ID), domain.GameStatusActive)
 }

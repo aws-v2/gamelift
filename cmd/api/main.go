@@ -7,18 +7,24 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
+	"backend/internal/application"
 	"backend/internal/config"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
+	"backend/internal/infrastructure/storage"
+	httpRouter "backend/internal/transport/http"
+	"backend/internal/transport/http/handlers"
+	appNats "backend/internal/transport/nats"
+	"backend/internal/transport/websocket"
+	"backend/pkg/database"
+	// "net/http"
+
+	// "github.com/nats-io/nats.go"
+	// "go.uber.org/zap"
+	// "backend/internal/config"
 	"backend/internal/domain"
 	"backend/internal/infrastructure/discovery"
-	"backend/internal/infrastructure/storage"
-	"backend/internal/application"
-	"backend/internal/infrastructure/repository"
-	appNats "backend/internal/transport/nats"
-	httpRouter "backend/internal/transport/http"
-	"backend/internal/transport/websocket"
-	"backend/internal/messaging"
-	"backend/pkg/database"
+	// "backend/pkg/database"
 	"backend/pkg/logger"
 
 	"github.com/nats-io/nats.go"
@@ -31,7 +37,7 @@ func main() {
 
 	cfg := config.Load()
 
-	// 1. Register with Eureka (with retries)
+	// ── Eureka registration ───────────────────────────────────────────────────
 	logr.Infow("Attempting Eureka registration", "app", cfg.Eureka.AppName)
 	for i := 0; i < 3; i++ {
 		if err := discovery.RegisterWithEureka(cfg.Eureka, logr); err != nil {
@@ -43,43 +49,38 @@ func main() {
 			break
 		}
 	}
-	// Start heartbeat
 	go discovery.SendHeartbeat(cfg.Eureka, logr)
 
+	// ── NATS ─────────────────────────────────────────────────────────────────
 	natsOpts := []nats.Option{
 		nats.Name("Gamelift Backend"),
 		nats.Timeout(10 * time.Second),
 	}
-
 	if cfg.NatsUser != "" && cfg.NatsPassword != "" {
 		natsOpts = append(natsOpts, nats.UserInfo(cfg.NatsUser, cfg.NatsPassword))
 	}
-
 	nc, err := nats.Connect(cfg.NatsURL, natsOpts...)
 	if err != nil {
-
 		logr.Fatalw("Failed to connect to NATS", "error", err)
 	}
 	defer nc.Close()
-	logr.Infow("Successfully connected to NATS", "url", cfg.NatsURL)
+	logr.Infow("Connected to NATS", "url", cfg.NatsURL)
 
-	natsClient := messaging.NewNatsClient(nc, logr, cfg.NatsPrefix)
-
+	// ── Database (PostgreSQL → SQLite fallback) ───────────────────────────────
 	var db *database.DB
 	for attempt := 1; attempt <= 4; attempt++ {
 		db, err = database.ConnectPostgres(cfg.DB)
 		if err == nil {
-			logr.Info("Successfully connected to PostgreSQL")
+			logr.Info("Connected to PostgreSQL")
 			break
 		}
-		logr.Warnw("Failed to connect to PostgreSQL, retrying", "attempt", attempt, "error", err)
+		logr.Warnw("PostgreSQL connection failed, retrying", "attempt", attempt, "error", err)
 		if attempt < 4 {
 			time.Sleep(2 * time.Second)
 		}
 	}
-
 	if err != nil {
-		logr.Warn("All PostgreSQL connection attempts failed, falling back to SQLite")
+		logr.Warn("All PostgreSQL attempts failed, falling back to SQLite")
 		sqlitePath := os.Getenv("SQLITE_PATH")
 		if sqlitePath == "" {
 			sqlitePath = "lambda.db"
@@ -88,23 +89,17 @@ func main() {
 		if err != nil {
 			logr.Fatalw("Failed to connect to SQLite fallback", "error", err)
 		}
-		logr.Infow("Successfully connected to SQLite fallback", "path", sqlitePath)
+		logr.Infow("Connected to SQLite fallback", "path", sqlitePath)
 	}
 	defer db.Close()
 
-	// Perform Migrations
+	// ── Migrations ────────────────────────────────────────────────────────────
 	logr.Info("Running database migrations...")
 	if err := db.Migrate("migrations/sql"); err != nil {
 		logr.Fatalw("Failed to run database migrations", "error", err)
 	}
 
-	authSvc := application.NewAuthService(cfg, logr)
-	gameSvc := repository.NewPostgresGameRepository(db, logr)
-	
-	hub := websocket.NewHub(logr)
-	go hub.Run()
-
-	// Seed Demo Game if it's a fresh database
+	// ── Seed demo game on fresh DB ────────────────────────────────────────────
 	var count int64
 	db.GORM.Model(&domain.Game{}).Count(&count)
 	if count == 0 {
@@ -120,7 +115,60 @@ func main() {
 		})
 	}
 
-	logr.Info("Connecting to MinIO...", zap.String("endpoint", cfg.S3.Endpoint))
+	// ── Wire + start application ──────────────────────────────────────────────
+	c := NewContainer(cfg, db, nc, logr)
+	c.Start()
+
+	// ── HTTP server ───────────────────────────────────────────────────────────
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	srv := &http.Server{
+		Addr:    cfg.ServerPort,
+		Handler: c.Router,
+	}
+	go func() {
+		logr.Infow("Listening", "port", cfg.ServerPort)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logr.Fatalf("Server failed", zap.Error(err))
+		}
+	}()
+
+	// ── Graceful shutdown ─────────────────────────────────────────────────────
+	<-ctx.Done()
+	logr.Info("Shutting down gracefully...")
+
+	if err := discovery.DeregisterFromEureka(cfg.Eureka, logr); err != nil {
+		logr.Errorw("Failed to deregister from Eureka", "error", err)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logr.Errorw("Server forced to shutdown", "error", err)
+	}
+
+	logr.Info("Backend stopped")
+}
+
+
+// Container holds all wired-up application components.
+type Container struct {
+	Config *config.Config
+	Router http.Handler
+
+	Hub               *websocket.Hub
+	S3Listener        *appNats.S3Listener
+	NodeAgent         *application.NodeAgent
+	GameStateListener *appNats.GameStateListener
+	InstanceListener  *appNats.InstanceLifecycleListener
+}
+
+// NewContainer wires every dependency and returns a ready Container.
+func NewContainer(cfg *config.Config, db *database.DB, nc *nats.Conn, logr *zap.SugaredLogger) *Container {
+	// ── infrastructure ────────────────────────────────────────────────────────
+	natsClient := messaging.NewNatsClient(nc, logr, cfg.NatsPrefix)
+
 	minioAdapter, err := storage.NewMinIOAdapter(
 		cfg.S3.Endpoint,
 		cfg.S3.AccessKey,
@@ -128,59 +176,60 @@ func main() {
 		cfg.S3.UseSSL,
 	)
 	if err != nil {
-		logr.Fatalw("Failed to connect to MinIO", "error", err)
+		logr.Fatalw("failed to connect to MinIO", "error", err)
 	}
 
-	validationSvc := application.NewValidationService()
-	s3Listener := appNats.NewS3Listener(gameSvc, natsClient, validationSvc, minioAdapter, cfg.PublicURL, cfg.AppEnv, logr)
-	go s3Listener.Start()
 
-	// Initialize Provisioning Logic
-	provisioningSvc := application.NewProvisioningService(gameSvc, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.PublicURL, cfg.AppEnv, logr)
-	nodeAgent := application.NewNodeAgent("local-dev-node", gameSvc, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.AppEnv, logr)
-	go nodeAgent.Start()
+	// ── repositories ─────────────────────────────────────────────────────────
+	gameRepo    := repository.NewPostgresGameRepository(db, logr)
+	sessionRepo := repository.NewPostgresSessionRepository(db, logr)
 
+
+
+	// ── services ─────────────────────────────────────────────────────────────
+	authSvc         := application.NewAuthService(cfg, logr)
+	validationSvc   := application.NewValidationService()
+	provisioningSvc := application.NewProvisioningService(gameRepo, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.PublicURL, cfg.AppEnv, logr)
+	sessionSvc      := application.NewSessionService(sessionRepo,provisioningSvc, logr, cfg.Debug)
+
+	// ── websocket hub ─────────────────────────────────────────────────────────
+	hub := websocket.NewHub(logr)
+
+
+	// ── Game service + handler ────────────────────────────────────────────────
+	gameService := application.NewGameService(gameRepo, logr, natsClient,sessionSvc)
+	gameHandler := handlers.NewGameHandler(gameService, logr)
+
+
+
+
+
+	// ── background listeners ──────────────────────────────────────────────────
+	s3Listener        := appNats.NewS3Listener(gameRepo, natsClient, validationSvc, minioAdapter, cfg.PublicURL, cfg.AppEnv, logr)
+	nodeAgent         := application.NewNodeAgent("local-dev-node", gameRepo, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.AppEnv, logr)
 	gameStateListener := appNats.NewGameStateListener(natsClient, hub, cfg.AppEnv, logr)
-	go gameStateListener.Start()
+	instanceListener  := appNats.NewInstanceLifecycleListener(gameRepo, natsClient, hub, cfg.AppEnv, logr)
 
-	instanceListener := appNats.NewInstanceLifecycleListener(gameSvc, natsClient, hub, cfg.AppEnv, logr)
-	go instanceListener.Start()
 
-	router := httpRouter.NewRouter(authSvc, gameSvc, hub, natsClient, provisioningSvc, minioAdapter, logr, cfg)
 
-	// --- Graceful Shutdown Setup ---
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	router := httpRouter.NewRouter(authSvc, gameHandler, hub, natsClient, provisioningSvc, minioAdapter, logr, cfg)
 
-	srv := &http.Server{
-		Addr:    cfg.ServerPort,
-		Handler: router,
+	return &Container{
+		Config:            cfg,
+		Router:            router,
+		Hub:               hub,
+		S3Listener:        s3Listener,
+		NodeAgent:         nodeAgent,
+		GameStateListener: gameStateListener,
+		InstanceListener:  instanceListener,
 	}
+}
 
-	// Start server in a goroutine
-	go func() {
-		logr.Infow("Listening on", "port", cfg.ServerPort)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logr.Fatalf("Server failed", zap.Error(err))
-		}
-	}()
-
-	// Wait for interrupt signal
-	<-ctx.Done()
-	logr.Info("Shutting down gracefully...")
-
-	// 1. Deregister from Eureka
-	if err := discovery.DeregisterFromEureka(cfg.Eureka, logr); err != nil {
-		logr.Errorw("Failed to deregister from Eureka", "error", err)
-	}
-
-	// 2. Shutdown HTTP Server
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logr.Errorw("Server forced to shutdown", "error", err)
-	}
-
-	logr.Info("Backend stopped")
+// Start launches all background goroutines.
+func (c *Container) Start() {
+	go c.Hub.Run()
+	go c.S3Listener.Start()
+	go c.NodeAgent.Start()
+	go c.GameStateListener.Start()
+	go c.InstanceListener.Start()
 }

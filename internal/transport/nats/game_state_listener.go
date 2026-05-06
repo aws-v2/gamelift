@@ -1,8 +1,8 @@
 package nats
 
 import (
-	"backend/internal/interfaces"
-	"backend/internal/messaging"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
 	"backend/internal/transport/websocket"
 
 	"github.com/nats-io/nats.go"
@@ -10,13 +10,13 @@ import (
 )
 
 type GameStateListener struct {
-	natsClient interfaces.MessagingClient
+	natsClient repository.MessagingClient
 	hub        *websocket.Hub
 	appEnv     string
 	logger     *zap.SugaredLogger
 }
 
-func NewGameStateListener(natsClient interfaces.MessagingClient, hub *websocket.Hub, appEnv string, logger *zap.SugaredLogger) *GameStateListener {
+func NewGameStateListener(natsClient repository.MessagingClient, hub *websocket.Hub, appEnv string, logger *zap.SugaredLogger) *GameStateListener {
 	return &GameStateListener{
 		natsClient: natsClient,
 		hub:        hub,

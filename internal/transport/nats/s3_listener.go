@@ -13,17 +13,17 @@ import (
 
 	"backend/internal/application"
 	"backend/internal/domain"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
 	"backend/internal/infrastructure/storage"
-	"backend/internal/interfaces"
-	"backend/internal/messaging"
 
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 )
 
 type S3Listener struct {
-	gameRepo      interfaces.GameRepository
-	natsClient    interfaces.MessagingClient
+	gameRepo      repository.GameRepository
+	natsClient    repository.MessagingClient
 	validationSvc *application.ValidationService
 	storage       *storage.MinIOAdapter
 	backendURL    string
@@ -32,8 +32,8 @@ type S3Listener struct {
 }
 
 func NewS3Listener(
-	gameRepo interfaces.GameRepository,
-	natsClient interfaces.MessagingClient,
+	gameRepo repository.GameRepository,
+	natsClient repository.MessagingClient,
 	validationSvc *application.ValidationService,
 	storage *storage.MinIOAdapter,
 	backendURL string,
@@ -67,7 +67,7 @@ func (l *S3Listener) Start() {
 			l.logger.Infow("S3 Upload successful, starting validation", "game_id", payload.GameID)
 
 			// 1. Get Game Record
-			game, err := l.gameRepo.GetGame(payload.GameID)
+			game, err := l.gameRepo.GetGame(context.Background(), uint(payload.GameID))
 			if err != nil {
 				l.logger.Errorw("Failed to find game", "game_id", payload.GameID, "error", err)
 				return
@@ -96,7 +96,7 @@ func (l *S3Listener) Start() {
 			l.logger.Infow("Directly downloading from MinIO", "bucket", bucket, "key", key)
 			if err := l.storage.DownloadFile(context.Background(), bucket, key, tempZip); err != nil {
 				l.logger.Errorw("Direct download failed", "error", err)
-				l.gameRepo.UpdateGameStatus(payload.GameID, "failed", "")
+				l.gameRepo.UpdateGameStatus(context.Background(), uint(payload.GameID), domain.GameStatusFailed)
 				return
 			}
 
@@ -106,19 +106,19 @@ func (l *S3Listener) Start() {
 
 			if err := l.validationSvc.Unzip(tempZip, tempDir); err != nil {
 				l.logger.Errorw("Unzip failed", "error", err)
-				l.gameRepo.UpdateGameStatus(payload.GameID, "failed", "")
+				l.gameRepo.UpdateGameStatus(context.Background(), uint(payload.GameID), domain.GameStatusFailed)
 				return
 			}
 
 			if err := l.validationSvc.ValidateStructure(tempDir, manifest); err != nil {
 				l.logger.Errorw("Validation failed", "game_id", payload.GameID, "error", err)
-				l.gameRepo.UpdateGameStatus(payload.GameID, "failed", "")
+				l.gameRepo.UpdateGameStatus(context.Background(), uint(payload.GameID), domain.GameStatusFailed)
 				return
 			}
 
 			// 4. Finalize
 			l.logger.Infow("Validation passed! Finalizing game", "game_id", payload.GameID)
-			err = l.gameRepo.UpdateGameStatus(payload.GameID, domain.GameStatusStored, payload.StorageARN)
+			err = l.gameRepo.UpdateGameStatus(context.Background(), uint(payload.GameID), domain.GameStatusStored)
 			if err != nil {
 				l.logger.Errorw("Failed to update status", "error", err)
 				return
