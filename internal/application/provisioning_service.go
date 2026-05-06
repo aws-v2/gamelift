@@ -28,6 +28,7 @@ type ProvisioningService struct {
 	backendURL string
 	appEnv     string
 	logger     *zap.SugaredLogger
+	natsPrefix string
 }
 
 func NewProvisioningService(
@@ -39,6 +40,7 @@ func NewProvisioningService(
 	backendURL string,
 	appEnv string,
 	logger *zap.SugaredLogger,
+	natsPrefix string,
 ) *ProvisioningService {
 	return &ProvisioningService{
 		gameRepo:   gameRepo,
@@ -49,38 +51,46 @@ func NewProvisioningService(
 		backendURL: backendURL,
 		appEnv:     appEnv,
 		logger:     logger,
+		natsPrefix: natsPrefix,
 	}
 }
 
 // ProvisionGame triggers the on-demand startup of a stored game.
 func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode) error {
+
 	game, err := s.gameRepo.GetGame(context.Background(), gameID)
 	if err != nil {
+
 		return err
 	}
-
-	// 1. Validate State
-	if game.Status != domain.GameStatusStored && (!s.debug || game.Status != domain.GameStatusActive) {
-		return domain.ErrInactiveGame
-	}
+	s.logger.Infow("---sssa-------------f--------%w %s ", game.Status)
+// 	// 1. Validate State
+// if game.Status != domain.GameStatusStored && (!s.debug || game.Status != domain.GameStatusActive) {
+//     s.logger.Infof("game status check failed: gameID=%s status=%s debug=%v", game.ID, game.Status, s.debug)
+//     return domain.ErrInactiveGame
+// }
+	s.logger.Infow("----------ddddlk------f--------")
 
 	// 1. Update status to Provisioning to prevent duplicate requests
 	err = s.gameRepo.UpdateGameStatus(context.Background(), gameID, domain.GameStatusProvisioning)
 	if err != nil {
 		return err
 	}
+	s.logger.Infow("----f------ddddlk------f--------")
 
 	// 2. Select a node (Mock: using the VMID from the game record for now)
 	targetNode := game.VMID
 	if targetNode == "" {
 		targetNode = "default-worker-node"
 	}
+	s.logger.Infow("--11--------ddddlk------f--------")
 
 	// 3. Publish Provisioning Event to EC2 Service
-	subj := messaging.GetEC2ProvisionSubject()
+	subj := fmt.Sprintf("%s.ec2.task.provision", s.natsPrefix)
 
 	var manifest domain.GameManifest
 	json.Unmarshal([]byte(game.Manifest), &manifest)
+	s.logger.Infow("----ds------ddddlk------f--------","subj",subj)
 
 	payload := domain.EC2ProvisionRequest{
 		Profile: "gamelift",
@@ -98,11 +108,12 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 		},
 		UserID: game.UserID,
 	}
+	s.logger.Infow("----dsfssd------ddddlk------f--------")
 
 	data, _ := json.Marshal(payload)
 	s.logger.Infow("Requesting game startup", "game_id", gameID, "node", targetNode)
 
-	err = s.natsClient.Publish(subj, data)
+	err = s.natsClient.Publish(messaging.Subject{Service: "ec2", Domain: "task", ActionType: "provision"}, data)
 	if err != nil {
 		return err
 	}

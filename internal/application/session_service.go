@@ -70,6 +70,8 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 	// TODO: remove once real provisioning flow is wired up
 
 	if s.debug {
+	s.logger.Infow("------------------s------")
+		
 		session.Status = StatusReady
 		session.AgentWSURL = "ws://localhost:9030/game"
 		if err := s.repo.MarkReady(ctx, session.ID, session.AgentWSURL, "local"); err != nil {
@@ -78,23 +80,30 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		s.logger.Infow("debug mode: session marked ready with local agent", "session_id", session.ID)
 		return session, nil
 	}else{
-		gameIDInt, err := strconv.Atoi(session.ID)
+	s.logger.Infow("----------------f--------")
+
+		gameIDInt :=session.ID
+
 		if err != nil {
-			_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed, "")
+	s.logger.Infow("-----------d-----f--------", "error", err)
+
+			_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
 			return nil, fmt.Errorf("invalid game_id: %w", err)
 		}
-		s.provisioningSvc.ProvisionGame(strconv.Itoa(gameIDInt), domain.StreamingModeState)
+	s.logger.Infow("------------k----f--------")
+
+		s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState)
 		// s.natsClient.Request(messaging.GetProvisionGameSubject(), []byte(session.ID), 10*time.Second)
 	}
 
 	gameIDInt, err := strconv.Atoi(req.GameID)
 	if err != nil {
-		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed, "")
+		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
 		return nil, fmt.Errorf("invalid game_id: %w", err)
 	}
 
 	if err := s.provisioningSvc.ProvisionGame(strconv.Itoa(gameIDInt), domain.StreamingModeState); err != nil {
-		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed, "")
+		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
 		return nil, fmt.Errorf("provision game: %w", err)
 	}
 
@@ -123,7 +132,7 @@ func (s *Service) MarkReady(ctx context.Context, sessionID, agentWSURL, nodeID s
 }
 
 func (s *Service) CloseSession(ctx context.Context, sessionID string) error {
-	if err := s.repo.UpdateStatus(ctx, sessionID, StatusClosed, ""); err != nil {
+	if err := s.repo.UpdateStatus(ctx, sessionID, StatusClosed); err != nil {
 		return fmt.Errorf("close session: %w", err)
 	}
 	return nil

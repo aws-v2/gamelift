@@ -35,7 +35,7 @@ type SessionRepository interface {
 	GetActiveSession(ctx context.Context, gameID, userID string) (*domain.GameSession, error)
 	MarkReady(ctx context.Context, sessionID, agentWSURL, nodeID string) error
 	CloseSession(ctx context.Context, sessionID string) error
-	UpdateStatus(ctx context.Context, sessionID, status, reason string) error
+	UpdateStatus(ctx context.Context, sessionID, status string) error
 }
 
 
@@ -78,12 +78,15 @@ func (r *postgresSessionRepository) MarkReady(ctx context.Context, sessionID, ag
 func (r *postgresSessionRepository) CloseSession(ctx context.Context, sessionID string) error {
 	return r.db.GORM.WithContext(ctx).Model(&domain.GameSession{}).Where("id = ?", sessionID).Update("status", "closed").Error
 }
-
-func (r *postgresSessionRepository) UpdateStatus(ctx context.Context, sessionID, status, reason string) error {
-	return r.db.GORM.WithContext(ctx).Model(&domain.GameSession{}).Where("id = ?", sessionID).Updates(map[string]any{"status": status, "reason": reason}).Error
+func (r *postgresSessionRepository) UpdateStatus(ctx context.Context, sessionID, status string) error {
+	err := r.db.GORM.WithContext(ctx).Model(&domain.GameSession{}).
+		Where("id = ?", sessionID).
+		Updates(map[string]any{"status": status}).Error
+	if err != nil {
+		r.log.Errorf("UpdateStatus failed: sessionID=%s status=%s err=%v", sessionID, status, err)
+	}
+	return err
 }
-
-
 func NewPostgresGameRepository(db *database.DB, log *zap.SugaredLogger) GameRepository {
 	return &postgresGameRepository{db: db, log: log}
 }
