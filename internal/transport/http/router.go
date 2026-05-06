@@ -21,7 +21,7 @@ func NewRouter(
 	gameHandler  *handlers.GameHandler,
 	hub          *websocket.Hub,
 	natsClient   *messaging.NatsClient,
-	provisioningSvc repository.ProvisioningService,
+	provisioningSvc *application.ProvisioningService,
 	storage      *storage.MinIOAdapter,
 	logger       *zap.SugaredLogger,
 	cfg          *config.Config,

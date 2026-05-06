@@ -14,19 +14,19 @@ import (
 
 type GameRepository interface {
 	ListGames(ctx context.Context) ([]domain.Game, error)
-	GetGame(ctx context.Context, id uint) (*domain.Game, error)
+	GetGame(ctx context.Context, id string) (*domain.Game, error)
 	CreateGame(ctx context.Context, game *domain.Game) error
 	UpdateGame(ctx context.Context, game *domain.Game) error
-	DeleteGame(ctx context.Context, id uint) error
+	DeleteGame(ctx context.Context, id string) error
 	GetGameByName(ctx context.Context, name string) (*domain.Game, error)
-	UpdateGameStatus(ctx context.Context, id uint, status domain.GameStatus) error
-	GetManifest(ctx context.Context, id uint) (map[string]any, error)
-	SetManifest(ctx context.Context, id uint, manifest map[string]any) error
+	UpdateGameStatus(ctx context.Context, id string, status domain.GameStatus) error
+	GetManifest(ctx context.Context, id string) (map[string]any, error)
+	SetManifest(ctx context.Context, id string, manifest map[string]any) error
 	GetGameByVMID(ctx context.Context, vmid string) (*domain.Game, error)
 	UpdateStatusByVMID(ctx context.Context, vmid string, status domain.GameStatus) error
 	CreateSession(ctx context.Context, session *domain.GameSession) error
-	GetSession(ctx context.Context, gameID uint) (*domain.GameSession, error)
-	UpdateSessionStatus(ctx context.Context, sessionID uint, status string) error
+	GetSession(ctx context.Context, gameID string) (*domain.GameSession, error)
+	UpdateSessionStatus(ctx context.Context, sessionID string, status string) error
 }
 
 
@@ -110,14 +110,14 @@ func (r *postgresGameRepository) ListGames(ctx context.Context) ([]domain.Game, 
 	}
 	return games, nil
 }
-func (r *postgresGameRepository) GetGame(ctx context.Context, id uint) (*domain.Game, error) {
+func (r *postgresGameRepository) GetGame(ctx context.Context, id string) (*domain.Game, error) {
 	var game domain.Game
 	if err := r.db.GORM.WithContext(ctx).First(&game, id).Error; err != nil {
 		return nil, fmt.Errorf("game %d not found: %w", id, err)
 	}
 	return &game, nil
 }
-func (r *postgresGameRepository) UpdateGameStatus(ctx context.Context, id uint, status domain.GameStatus) error {
+func (r *postgresGameRepository) UpdateGameStatus(ctx context.Context, id string, status domain.GameStatus) error {
 	return r.db.GORM.WithContext(ctx).Model(&domain.Game{}).Where("id = ?", id).Update("status", status).Error
 }
 func (r *postgresGameRepository) GetGameByVMID(ctx context.Context, vmid string) (*domain.Game, error) {
@@ -136,11 +136,11 @@ func (r *postgresGameRepository) UpdateGame(ctx context.Context, game *domain.Ga
 	return r.db.GORM.WithContext(ctx).Save(game).Error
 }
 
-func (r *postgresGameRepository) DeleteGame(ctx context.Context, id uint) error {
+func (r *postgresGameRepository) DeleteGame(ctx context.Context, id string) error {
 	return r.db.GORM.WithContext(ctx).Delete(&domain.Game{}, id).Error
 }
 
-func (r *postgresGameRepository) GetManifest(ctx context.Context, id uint) (map[string]any, error) {
+func (r *postgresGameRepository) GetManifest(ctx context.Context, id string) (map[string]any, error) {
 	var game domain.Game
 	if err := r.db.GORM.WithContext(ctx).Select("id, name, arn, status").First(&game, id).Error; err != nil {
 		return nil, fmt.Errorf("game %d not found: %w", id, err)
@@ -153,13 +153,13 @@ func (r *postgresGameRepository) GetManifest(ctx context.Context, id uint) (map[
 	}, nil
 }
 
-func (r *postgresGameRepository) SetManifest(ctx context.Context, id uint, manifest map[string]any) error {
+func (r *postgresGameRepository) SetManifest(ctx context.Context, id string, manifest map[string]any) error {
 	return r.db.GORM.WithContext(ctx).Model(&domain.Game{}).Where("id = ?", id).Updates(manifest).Error
 }
 func (r *postgresGameRepository) CreateSession(ctx context.Context, session *domain.GameSession) error {
 	return r.db.GORM.WithContext(ctx).Create(session).Error
 }
-func (r *postgresGameRepository) GetSession(ctx context.Context, gameID uint) (*domain.GameSession, error) {
+func (r *postgresGameRepository) GetSession(ctx context.Context, gameID string) (*domain.GameSession, error) {
 	var session domain.GameSession
 	if err := r.db.GORM.WithContext(ctx).Where("game_id = ?", gameID).Last(&session).Error; err != nil {
 		return nil, fmt.Errorf("session for game %d not found: %w", gameID, err)
@@ -167,7 +167,7 @@ func (r *postgresGameRepository) GetSession(ctx context.Context, gameID uint) (*
 	return &session, nil
 }
 
-func (r *postgresGameRepository) UpdateSessionStatus(ctx context.Context, sessionID uint, status string) error {
+func (r *postgresGameRepository) UpdateSessionStatus(ctx context.Context, sessionID string, status string) error {
 	return r.db.GORM.WithContext(ctx).
 		Model(&domain.Session{}).
 		Where("id = ?", sessionID).

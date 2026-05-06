@@ -53,8 +53,8 @@ func NewProvisioningService(
 }
 
 // ProvisionGame triggers the on-demand startup of a stored game.
-func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMode) error {
-	game, err := s.gameRepo.GetGame(context.Background(), uint(gameID))
+func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode) error {
+	game, err := s.gameRepo.GetGame(context.Background(), gameID)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 	}
 
 	// 1. Update status to Provisioning to prevent duplicate requests
-	err = s.gameRepo.UpdateGameStatus(context.Background(), uint(gameID), domain.GameStatusProvisioning)
+	err = s.gameRepo.UpdateGameStatus(context.Background(), gameID, domain.GameStatusProvisioning)
 	if err != nil {
 		return err
 	}
@@ -170,5 +170,5 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	}
 
 	// Finalize Status
-	s.gameRepo.UpdateGameStatus(context.Background(), uint(game.ID), domain.GameStatusActive)
+	s.gameRepo.UpdateGameStatus(context.Background(),strconv.Itoa(game.ID), domain.GameStatusActive)
 }

@@ -190,7 +190,7 @@ func NewContainer(cfg *config.Config, db *database.DB, nc *nats.Conn, logr *zap.
 	authSvc         := application.NewAuthService(cfg, logr)
 	validationSvc   := application.NewValidationService()
 	provisioningSvc := application.NewProvisioningService(gameRepo, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.PublicURL, cfg.AppEnv, logr)
-	sessionSvc      := application.NewSessionService(sessionRepo,provisioningSvc, logr, cfg.Debug)
+	sessionSvc      := application.NewSessionService(sessionRepo,provisioningSvc, logr, cfg.Debug, natsClient)
 
 	// ── websocket hub ─────────────────────────────────────────────────────────
 	hub := websocket.NewHub(logr)

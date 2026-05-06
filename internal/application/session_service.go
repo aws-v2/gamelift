@@ -2,6 +2,7 @@ package application
 
 import (
 	"backend/internal/domain"
+	"backend/internal/infrastructure/messaging"
 	"backend/internal/infrastructure/repository"
 	"context"
 	"crypto/rand"
@@ -14,17 +15,18 @@ import (
 )
 
 type Service struct {
-	repo             repository.SessionRepository
-	provisioningSvc  repository.ProvisioningService
-	logger           *zap.SugaredLogger
-	debug            bool
+	repo            repository.SessionRepository
+	provisioningSvc *ProvisioningService
+	logger          *zap.SugaredLogger
+	debug           bool
+	natsClient      *messaging.NatsClient
 }
 
-func NewSessionService( sessionRepo repository.SessionRepository,provisioningSvc repository.ProvisioningService, logger *zap.SugaredLogger, debug bool) *Service {
-	return &Service{repo: sessionRepo, provisioningSvc: provisioningSvc, logger: logger, debug: debug}
+func NewSessionService(sessionRepo repository.SessionRepository, provisioningSvc *ProvisioningService, logger *zap.SugaredLogger, debug bool, natsClient *messaging.NatsClient) *Service {
+	return &Service{repo: sessionRepo, provisioningSvc: provisioningSvc, logger: logger, debug: debug, natsClient: natsClient}
 }
 
- const (
+const (
 	StatusProvisioning = "provisioning"
 	StatusReady        = "ready"
 	StatusClosed       = "closed"
@@ -45,21 +47,28 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		return nil, fmt.Errorf("generate token: %w", err)
 	}
 
+	s.logger.Infow("the token is : ")
+	s.logger.Infow(token)
+	s.logger.Infow("the token is : ")
+
 	session := &domain.GameSession{
 		ID:        generateID(),
 		GameID:    req.GameID,
-		UserID:    "",
+		UserID:    req.UserID,
 		Status:    StatusProvisioning,
 		Token:     token,
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(2 * time.Hour),
 	}
 
+	s.logger.Infow("the session is : %s", session)
+
 	if err := s.repo.Create(ctx, session); err != nil {
 		return nil, fmt.Errorf("persist session: %w", err)
 	}
-
+	s.logger.Infow("the session is : %s", session.Token)
 	// TODO: remove once real provisioning flow is wired up
+
 	if s.debug {
 		session.Status = StatusReady
 		session.AgentWSURL = "ws://localhost:9030/game"
@@ -68,6 +77,14 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		}
 		s.logger.Infow("debug mode: session marked ready with local agent", "session_id", session.ID)
 		return session, nil
+	}else{
+		gameIDInt, err := strconv.Atoi(session.ID)
+		if err != nil {
+			_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed, "")
+			return nil, fmt.Errorf("invalid game_id: %w", err)
+		}
+		s.provisioningSvc.ProvisionGame(strconv.Itoa(gameIDInt), domain.StreamingModeState)
+		// s.natsClient.Request(messaging.GetProvisionGameSubject(), []byte(session.ID), 10*time.Second)
 	}
 
 	gameIDInt, err := strconv.Atoi(req.GameID)
@@ -76,7 +93,7 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		return nil, fmt.Errorf("invalid game_id: %w", err)
 	}
 
-	if err := s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState); err != nil {
+	if err := s.provisioningSvc.ProvisionGame(strconv.Itoa(gameIDInt), domain.StreamingModeState); err != nil {
 		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed, "")
 		return nil, fmt.Errorf("provision game: %w", err)
 	}

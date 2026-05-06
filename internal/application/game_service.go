@@ -19,18 +19,18 @@ import (
 
 type GameService interface {
 	ListGames(ctx context.Context) ([]domain.Game, error)
-	GetGame(ctx context.Context, id uint) (*domain.Game, error)
+	GetGame(ctx context.Context, id string) (*domain.Game, error)
 	CreateGame(ctx context.Context, req CreateGameRequest) (*domain.Game, error)
-	UpdateGame(ctx context.Context, id uint, req UpdateGameRequest) (*domain.Game, error)
-	DeleteGame(ctx context.Context, id uint) error
+	UpdateGame(ctx context.Context, id string, req UpdateGameRequest) (*domain.Game, error)
+	DeleteGame(ctx context.Context, id string) error
 
-	GetManifest(ctx context.Context, id uint) (map[string]any, error)
-	GetDownloadURL(ctx context.Context, id uint) (string, error)
+	GetManifest(ctx context.Context, id string) (map[string]any, error)
+	GetDownloadURL(ctx context.Context, id string) (string, error)
 	InitUpload(ctx context.Context, req InitUploadRequest) (*InitUploadResult, error)
 
 	PlayGame(ctx context.Context, req PlayGameRequest) (*PlayGameResult, error)
 	CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error)
-	GetSessionStatus(ctx context.Context, gameID uint) (*domain.GameSession, error)
+	GetSessionStatus(ctx context.Context, gameID string) (*domain.GameSession, error)
 }
 
 // ── Request / Response types ──────────────────────────────────────────────────
@@ -69,7 +69,7 @@ type InitUploadResult struct {
 }
 
 type PlayGameRequest struct {
-	GameID uint   `json:"game_id" binding:"required"`
+	GameID string   `json:"game_id" binding:"required"`
 	UserID string `json:"user_id" binding:"required"`
 }
 
@@ -101,7 +101,7 @@ func (s *gameService) ListGames(ctx context.Context) ([]domain.Game, error) {
 	return s.repo.ListGames(ctx)
 }
 
-func (s *gameService) GetGame(ctx context.Context, id uint) (*domain.Game, error) {
+func (s *gameService) GetGame(ctx context.Context, id string) (*domain.Game, error) {
 	return s.repo.GetGame(ctx, id)
 }
 
@@ -118,7 +118,7 @@ func (s *gameService) CreateGame(ctx context.Context, req CreateGameRequest) (*d
 	return game, nil
 }
 
-func (s *gameService) UpdateGame(ctx context.Context, id uint, req UpdateGameRequest) (*domain.Game, error) {
+func (s *gameService) UpdateGame(ctx context.Context, id string, req UpdateGameRequest) (*domain.Game, error) {
 	game, err := s.repo.GetGame(ctx, id)
 	if err != nil {
 		return nil, err
@@ -135,15 +135,15 @@ func (s *gameService) UpdateGame(ctx context.Context, id uint, req UpdateGameReq
 	return game, nil
 }
 
-func (s *gameService) DeleteGame(ctx context.Context, id uint) error {
+func (s *gameService) DeleteGame(ctx context.Context, id string) error {
 	return s.repo.DeleteGame(ctx, id)
 }
 
-func (s *gameService) GetManifest(ctx context.Context, id uint) (map[string]any, error) {
+func (s *gameService) GetManifest(ctx context.Context, id string) (map[string]any, error) {
 	return s.repo.GetManifest(ctx, id)
 }
 
-func (s *gameService) GetDownloadURL(ctx context.Context, id uint) (string, error) {
+func (s *gameService) GetDownloadURL(ctx context.Context, id string) (string, error) {
 	game, err := s.repo.GetGame(ctx, id)
 	if err != nil {
 		return "", err
@@ -272,15 +272,24 @@ func (s *gameService) CreateSession(ctx context.Context, gameID string, req doma
 		UserID: req.UserID,
 		GameImage: "",
 	}
-	s.sessionService.CreateSession(ctx, initService)
-	
-	if err := s.repo.CreateSession(ctx, session); err != nil {
+	ses ,err:=s.sessionService.CreateSession(ctx, initService)
+	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
+
+
+	session.AgentWSURL=ses.AgentWSURL
+	session.Token=ses.Token
+	session.NodeID=ses.NodeID
+
+	
+	// if err := s.repo.CreateSession(ctx, session); err != nil {
+	// 	return nil, fmt.Errorf("create session: %w", err)
+	// }
 
 	return session, nil
 }
 
-func (s *gameService) GetSessionStatus(ctx context.Context, gameID uint) (*domain.GameSession, error) {
+func (s *gameService) GetSessionStatus(ctx context.Context, gameID string) (*domain.GameSession, error) {
 	return s.repo.GetSession(ctx, gameID)
 }

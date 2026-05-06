@@ -39,8 +39,8 @@ func GetGameStateBroadcastSubject() Subject {
 // GetProvisionGameSubject returns the subject for internal provisioning requests.
 func GetProvisionGameSubject() Subject {
 	return Subject{
-		Service:    "provisioning",
-		Domain:     "game",
+		Service:    "ec2",
+		Domain:     "task",
 		ActionType: "provision",
 	}
 }

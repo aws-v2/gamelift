@@ -35,7 +35,7 @@ func (h *GameHandler) GetGame(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	game, err := h.svc.GetGame(c.Request.Context(), id)
+	game, err := h.svc.GetGame(c.Request.Context(), strconv.Itoa(int(id)))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "game not found"})
 		return
@@ -68,7 +68,7 @@ func (h *GameHandler) UpdateGame(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	game, err := h.svc.UpdateGame(c.Request.Context(), id, req)
+	game, err := h.svc.UpdateGame(c.Request.Context(), strconv.Itoa(int(id)), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update game"})
 		return
@@ -82,7 +82,7 @@ func (h *GameHandler) DeleteGame(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	if err := h.svc.DeleteGame(c.Request.Context(), id); err != nil {
+	if err := h.svc.DeleteGame(c.Request.Context(), strconv.Itoa(int(id))); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete game"})
 		return
 	}
@@ -91,7 +91,7 @@ func (h *GameHandler) DeleteGame(c *gin.Context) {
 
 func (h *GameHandler) GetManifest(c *gin.Context) {
 	id, _ := parseID(c)
-	manifest, err := h.svc.GetManifest(c.Request.Context(), id)
+	manifest, err := h.svc.GetManifest(c.Request.Context(), strconv.Itoa(int(id)))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "manifest not found"})
 		return
@@ -101,7 +101,7 @@ func (h *GameHandler) GetManifest(c *gin.Context) {
 
 func (h *GameHandler) DownloadPackage(c *gin.Context) {
 	id, _ := parseID(c)
-	url, err := h.svc.GetDownloadURL(c.Request.Context(), id)
+	url, err := h.svc.GetDownloadURL(c.Request.Context(), strconv.Itoa(int(id)))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "package not found"})
 		return
@@ -166,7 +166,7 @@ func (h *GameHandler) CreateSession(c *gin.Context) {
 
 func (h *GameHandler) GetSessionStatus(c *gin.Context) {
 	id, _ := parseID(c)
-	session, err := h.svc.GetSessionStatus(c.Request.Context(), id)
+	session, err := h.svc.GetSessionStatus(c.Request.Context(), strconv.Itoa(int(id)))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
 		return
