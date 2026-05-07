@@ -66,7 +66,7 @@ func (r *postgresSessionRepository) Create(ctx context.Context, session *domain.
 func (r *postgresSessionRepository) GetActiveSession(ctx context.Context, gameID, userID string) (*domain.GameSession, error) {
 	var session domain.GameSession
 	if err := r.db.GORM.WithContext(ctx).Where("game_id = ? AND user_id = ? AND status = ?", gameID, userID, "active").First(&session).Error; err != nil {
-		return nil, fmt.Errorf("session for game %d and user %s not found: %w", gameID, userID, err)
+		return nil, fmt.Errorf("session for game %s and user %s not found: %w", gameID, userID, err)
 	}
 	return &session, nil
 }
@@ -127,7 +127,7 @@ func (r *postgresGameRepository) UpdateGameStatus(ctx context.Context, id string
 func (r *postgresGameRepository) GetGameByVMID(ctx context.Context, vmid string) (*domain.Game, error) {
 	var game domain.Game
 	if err := r.db.GORM.WithContext(ctx).First(&game, vmid).Error; err != nil {
-		return nil, fmt.Errorf("game %d not found: %w", vmid, err)
+		return nil, fmt.Errorf("game %s not found: %w", vmid, err)
 	}
 	return &game, nil
 }
@@ -147,7 +147,7 @@ func (r *postgresGameRepository) DeleteGame(ctx context.Context, id string) erro
 func (r *postgresGameRepository) GetManifest(ctx context.Context, id string) (map[string]any, error) {
 	var game domain.Game
 	if err := r.db.GORM.WithContext(ctx).Select("id, name, arn, status").First(&game, id).Error; err != nil {
-		return nil, fmt.Errorf("game %d not found: %w", id, err)
+		return nil, fmt.Errorf("game %s not found: %w", id, err)
 	}
 	return map[string]any{
 		"id":     game.ID,
@@ -166,7 +166,7 @@ func (r *postgresGameRepository) CreateSession(ctx context.Context, session *dom
 func (r *postgresGameRepository) GetSession(ctx context.Context, gameID string) (*domain.GameSession, error) {
 	var session domain.GameSession
 	if err := r.db.GORM.WithContext(ctx).Where("game_id = ?", gameID).Last(&session).Error; err != nil {
-		return nil, fmt.Errorf("session for game %d not found: %w", gameID, err)
+		return nil, fmt.Errorf("session for game %s not found: %w", gameID, err)
 	}
 	return &session, nil
 }

@@ -125,8 +125,8 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	s.logger.Infow("Starting local execution debug mode", "game_id", game.ID)
 
 	// Prepare Paths
-	tempDir := filepath.Join("/tmp", fmt.Sprintf("game_%d", game.ID))
-	tempZip := filepath.Join("/tmp", fmt.Sprintf("game_%d.zip", game.ID))
+	tempDir := filepath.Join("/tmp", fmt.Sprintf("game_%s", game.ID))
+	tempZip := filepath.Join("/tmp", fmt.Sprintf("game_%s.zip", game.ID))
 	os.RemoveAll(tempDir)
 	os.MkdirAll(tempDir, os.ModePerm)
 

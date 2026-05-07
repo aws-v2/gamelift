@@ -261,7 +261,7 @@ func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest) (*PlayG
 	}
 	return &PlayGameResult{
 		SessionID: session.ID,
-		StreamURL: fmt.Sprintf("/api/v1/ws?session=%d", session.ID),
+		StreamURL: fmt.Sprintf("/api/v1/ws?session=%s", session.ID),
 		Status:    session.Status,
 	}, nil
 }
