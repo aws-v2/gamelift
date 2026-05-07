@@ -159,7 +159,7 @@ func (h *GameHandler) CreateSession(c *gin.Context) {
 	}
 	session, err := h.svc.CreateSession(c.Request.Context(), gameId, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, session)

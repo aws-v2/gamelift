@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -82,7 +81,7 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 	}else{
 	s.logger.Infow("----------------f--------")
 
-		gameIDInt :=session.ID
+		gameIDInt :=session.GameID
 
 		if err != nil {
 	s.logger.Infow("-----------d-----f--------", "error", err)
@@ -96,13 +95,13 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		// s.natsClient.Request(messaging.GetProvisionGameSubject(), []byte(session.ID), 10*time.Second)
 	}
 
-	gameIDInt, err := strconv.Atoi(req.GameID)
+	gameIDInt := req.GameID
 	if err != nil {
 		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
 		return nil, fmt.Errorf("invalid game_id: %w", err)
 	}
 
-	if err := s.provisioningSvc.ProvisionGame(strconv.Itoa(gameIDInt), domain.StreamingModeState); err != nil {
+	if err := s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState); err != nil {
 		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
 		return nil, fmt.Errorf("provision game: %w", err)
 	}

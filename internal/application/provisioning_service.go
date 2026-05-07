@@ -92,18 +92,22 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 		},
 		Parameters: map[string]string{
 			"game_id":        game.ID,
-			"storage_arn":    game.StorageARN,
+			"storage_arn":    game.ARN,
 			"headless_bin":   manifest.HeadlessBin,
 			"game_name":      game.Name,
 			"backend_url":    s.backendURL,
 			"streaming_mode": string(mode),
 		},
 		UserID: game.UserID,
+		StorageARN: game.ARN,
+		Manifest: domain.GameManifest{
+			Name: game.Name,
+			HeadlessBin: "server/hh.x86_64",
+		},
 	}
-	s.logger.Infow("----dsfssd------ddddlk------f--------")
 
 	data, _ := json.Marshal(payload)
-	s.logger.Infow("Requesting game startup", "game_id", gameID, "node", "targetNode")
+	s.logger.Infow("Requesting game startup", "game_id", payload)
 
 	err = s.natsClient.Publish(messaging.Subject{Service: "ec2", Domain: "task", ActionType: "provision"}, data)
 	if err != nil {
@@ -112,6 +116,10 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 
 	return nil
 }
+
+
+
+
 
 func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.StreamingMode) {
 	s.logger.Infow("Starting local execution debug mode", "game_id", game.ID)

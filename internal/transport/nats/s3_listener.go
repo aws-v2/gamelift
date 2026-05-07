@@ -140,6 +140,7 @@ func (l *S3Listener) Start() {
 					"backend_url":  l.backendURL,
 				},
 				UserID: game.UserID,
+				StorageARN: game.StorageARN,
 			}
 			ec2Data, _ := json.Marshal(ec2Payload)
 			l.natsClient.Publish(ec2Subj, ec2Data)

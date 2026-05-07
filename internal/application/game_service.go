@@ -187,8 +187,13 @@ func (s *gameService) InitUpload(ctx context.Context, req InitUploadRequest) (*I
 	s.log.Info(">>>>>>>>>>>>>>>k>>>>>>>>>>>>>>>>>>>>>")
 
 	// 3. Generate ARN and folder location now that we have an ID
-	game.ARN            = fmt.Sprintf("arn:serw:game:eu-north-1:%s:game/%d", "userIDVal", game.ID)
-	game.FolderLocation = fmt.Sprintf("./uploads/games/%d", game.ID)
+	// game.ARN            = fmt.Sprintf("arn:serw:game:eu-north-1:%s:game/%s", "userIDVal", game.ID)
+
+	game.ARN = fmt.Sprintf("arn:aws:s3:::%s/%s", "gamelift_games", fmt.Sprintf("uploads/games/%s/package.x86_64", game.ID))
+	
+	
+	
+	game.FolderLocation = fmt.Sprintf("./uploads/games/%s", game.ID)
 	if err := s.repo.UpdateGame(ctx, game); err != nil {
 		return nil, fmt.Errorf("failed to update game ARN: %w", err)
 	}

@@ -26,6 +26,8 @@ type EC2ProvisionRequest struct {
 	Specs      map[string]int    `json:"specs"`
 	Parameters map[string]string `json:"parameters"`
 	UserID     string            `json:"user_id"`
+	StorageARN string            `json:"storage_arn"`
+	Manifest   GameManifest      `json:"manifest"`
 }
 
 // S3PresignedURLResponse defines the expected response from the S3 service
