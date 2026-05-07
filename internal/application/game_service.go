@@ -206,7 +206,7 @@ func (s *gameService) InitUpload(ctx context.Context, req InitUploadRequest) (*I
 		Extension: "x86_64",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal presign payload: %w", err)
+		return nil, fmt.Errorf("failed  marshal presign payload: %w", err)
 	}
 
 	reply, err := s.natsClient.Request(
