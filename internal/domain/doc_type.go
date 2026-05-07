@@ -7,8 +7,6 @@ const (
 	InternalDoc DocType = "internal"
 )
 
-
- 
 // DocMetadata is read from <slug>.json alongside the markdown file.
 type DocMetadata struct {
 	Title       string   `json:"title"`

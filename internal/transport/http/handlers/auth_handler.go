@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"backend/internal/domain"
-	"backend/internal/interfaces"
+	"backend/internal/infrastructure/repository"
 	"backend/internal/transport/response"
 
 	"github.com/gin-gonic/gin"
@@ -12,11 +12,11 @@ import (
 )
 
 type AuthHandler struct {
-	authSvc interfaces.AuthService
+	authSvc repository.AuthService
 	logger  *zap.SugaredLogger
 }
 
-func NewAuthHandler(authSvc interfaces.AuthService, logger *zap.SugaredLogger) *AuthHandler {
+func NewAuthHandler(authSvc repository.AuthService, logger *zap.SugaredLogger) *AuthHandler {
 	return &AuthHandler{
 		authSvc: authSvc,
 		logger:  logger,

@@ -70,6 +70,7 @@ func (c *NatsClient) Request(subject Subject, data []byte, timeout time.Duration
 	c.logger.Infow("NATS Request", "subject", subjStr, "bytes", len(data))
 	if c.nc != nil {
 		c.logger.Infow("Not nill")
+		c.logger.Infow("NATS Request", "subject", subjStr, "bytes", len(data))
 		return c.nc.Request(subjStr, data, timeout)
 	}
 	c.logger.Infow("NATS connection is nil")

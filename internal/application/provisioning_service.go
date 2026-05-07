@@ -5,39 +5,41 @@ import (
 	"fmt"
 
 	"backend/internal/domain"
-	"backend/internal/interfaces"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
 	"backend/internal/infrastructure/storage"
-	"backend/internal/messaging"
+
 	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
 )
 
 type ProvisioningService struct {
-	gameRepo   interfaces.GameRepository
-	natsClient interfaces.MessagingClient
+	gameRepo   repository.GameRepository
+	natsClient repository.MessagingClient
 	storage    *storage.MinIOAdapter
 	debug      bool
 	godotPath  string
 	backendURL string
 	appEnv     string
 	logger     *zap.SugaredLogger
+	natsPrefix string
 }
 
 func NewProvisioningService(
-	gameRepo interfaces.GameRepository,
-	natsClient interfaces.MessagingClient,
+	gameRepo repository.GameRepository,
+	natsClient repository.MessagingClient,
 	storage *storage.MinIOAdapter,
 	debug bool,
 	godotPath string,
 	backendURL string,
 	appEnv string,
 	logger *zap.SugaredLogger,
+	natsPrefix string,
 ) *ProvisioningService {
 	return &ProvisioningService{
 		gameRepo:   gameRepo,
@@ -48,38 +50,39 @@ func NewProvisioningService(
 		backendURL: backendURL,
 		appEnv:     appEnv,
 		logger:     logger,
+		natsPrefix: natsPrefix,
 	}
 }
 
 // ProvisionGame triggers the on-demand startup of a stored game.
-func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMode) error {
-	game, err := s.gameRepo.GetGame(gameID)
+func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode) error {
+
+	game, err := s.gameRepo.GetGame(context.Background(), gameID)
 	if err != nil {
+
 		return err
 	}
-
-	// 1. Validate State
-	if game.Status != domain.GameStatusStored && (!s.debug || game.Status != domain.GameStatusActive) {
-		return domain.ErrInactiveGame
-	}
+	s.logger.Infow("---sssa-------------f--------%w %s ", game.Status)
+// 	// 1. Validate State
+// if game.Status != domain.GameStatusStored && (!s.debug || game.Status != domain.GameStatusActive) {
+//     s.logger.Infof("game status check failed: gameID=%s status=%s debug=%v", game.ID, game.Status, s.debug)
+//     return domain.ErrInactiveGame
+// }
+	s.logger.Infow("----------ddddlk------f--------")
 
 	// 1. Update status to Provisioning to prevent duplicate requests
-	err = s.gameRepo.UpdateGameStatus(gameID, domain.GameStatusProvisioning, game.StorageARN)
+	err = s.gameRepo.UpdateGameStatus(context.Background(), gameID, domain.GameStatusProvisioning)
 	if err != nil {
 		return err
 	}
-
-	// 2. Select a node (Mock: using the VMID from the game record for now)
-	targetNode := game.VMID
-	if targetNode == "" {
-		targetNode = "default-worker-node"
-	}
-
+	s.logger.Infow("----f------ddddlk------f--------")
+ 
 	// 3. Publish Provisioning Event to EC2 Service
-	subj := messaging.GetEC2ProvisionSubject()
+	subj := fmt.Sprintf("%s.ec2.task.provision", s.natsPrefix)
 
 	var manifest domain.GameManifest
 	json.Unmarshal([]byte(game.Manifest), &manifest)
+	s.logger.Infow("----ds------ddddlk------f--------","subj",subj)
 
 	payload := domain.EC2ProvisionRequest{
 		Profile: "gamelift",
@@ -88,20 +91,25 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 			"ram": 4096,
 		},
 		Parameters: map[string]string{
-			"game_id":        strconv.Itoa(game.ID),
-			"storage_arn":    game.StorageARN,
+			"game_id":        game.ID,
+			"storage_arn":    game.ARN,
 			"headless_bin":   manifest.HeadlessBin,
 			"game_name":      game.Name,
 			"backend_url":    s.backendURL,
 			"streaming_mode": string(mode),
 		},
 		UserID: game.UserID,
+		StorageARN: game.ARN,
+		Manifest: domain.GameManifest{
+			Name: game.Name,
+			HeadlessBin: "server/hh.x86_64",
+		},
 	}
 
 	data, _ := json.Marshal(payload)
-	s.logger.Infow("Requesting game startup", "game_id", gameID, "node", targetNode)
+	s.logger.Infow("Requesting game startup", "game_id", payload)
 
-	err = s.natsClient.Publish(subj, data)
+	err = s.natsClient.Publish(messaging.Subject{Service: "ec2", Domain: "task", ActionType: "provision"}, data)
 	if err != nil {
 		return err
 	}
@@ -109,12 +117,16 @@ func (s *ProvisioningService) ProvisionGame(gameID int, mode domain.StreamingMod
 	return nil
 }
 
+
+
+
+
 func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.StreamingMode) {
 	s.logger.Infow("Starting local execution debug mode", "game_id", game.ID)
 
 	// Prepare Paths
-	tempDir := filepath.Join("/tmp", fmt.Sprintf("game_%d", game.ID))
-	tempZip := filepath.Join("/tmp", fmt.Sprintf("game_%d.zip", game.ID))
+	tempDir := filepath.Join("/tmp", fmt.Sprintf("game_%s", game.ID))
+	tempZip := filepath.Join("/tmp", fmt.Sprintf("game_%s.zip", game.ID))
 	os.RemoveAll(tempDir)
 	os.MkdirAll(tempDir, os.ModePerm)
 
@@ -169,5 +181,5 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	}
 
 	// Finalize Status
-	s.gameRepo.UpdateGameStatus(game.ID, domain.GameStatusActive, game.StorageARN)
+	s.gameRepo.UpdateGameStatus(context.Background(),game.ID, domain.GameStatusActive)
 }
