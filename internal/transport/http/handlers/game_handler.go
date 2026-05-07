@@ -113,6 +113,7 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 	h.log.Info("InitUpload")
 
 	var req application.InitUploadRequest
+	req.UserID=c.GetString("userID")
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		h.log.Error("InitUpload", "error", err)

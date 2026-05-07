@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -152,7 +151,7 @@ func (s *gameService) GetDownloadURL(ctx context.Context, id string) (string, er
 	return fmt.Sprintf("/api/v1/gamelift/games/static/%s/package.zip", game.FolderLocation), nil
 }
 type createPresignedURLRequestPayload struct {
-	GameID    int    `json:"game_id"`
+	GameID    string    `json:"game_id"`
 	UserID    string `json:"user_id"`
 	ARN       string `json:"arn"`
 	Extension string `json:"extension"`
@@ -176,6 +175,7 @@ func (s *gameService) InitUpload(ctx context.Context, req InitUploadRequest) (*I
 
 	// 2. Create the game record
 	game := &domain.Game{
+		ID: uuid.New().String(),
 		Name:          req.Name,
 		UserID:        req.UserID,
 		Status:        domain.GameStatusPending,
@@ -213,11 +213,17 @@ func (s *gameService) InitUpload(ctx context.Context, req InitUploadRequest) (*I
 		return nil, fmt.Errorf("presign request failed: %w", err)
 	}
 
+var presignResp struct {
+    UploadURL string `json:"upload_url"`
+}
+if err := json.Unmarshal(reply.Data, &presignResp); err != nil {
+    return nil, fmt.Errorf("failed to parse presign response: %w", err)
+}
 
-	return &InitUploadResult{
-		UploadURL: string(reply.Data),
-		Key:       fmt.Sprintf("games/%d/package.%s", game.ID, "x86_64"),
-	}, nil
+return &InitUploadResult{
+    UploadURL: presignResp.UploadURL,
+    Key:       fmt.Sprintf("games/%s/package.%s", game.ID, "x86_64"),
+}, nil
 }
 
 
@@ -233,14 +239,14 @@ func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest) (*PlayG
 	}
 	session := &domain.GameSession{
 		ID: uuid.New().String(),
-		GameID: strconv.Itoa(game.ID),
+		GameID: game.ID,
 		UserID: req.UserID,
 		Status: "starting",
 		NodeID: "lksjdaksjdak",
 		
 	}
 	initService :=domain.CreateSessionRequest{
-		GameID: strconv.Itoa(game.ID),
+		GameID: game.ID,
 		UserID: req.UserID,
 		GameImage: "",
 	}
