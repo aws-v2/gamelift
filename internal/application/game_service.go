@@ -30,6 +30,8 @@ type GameService interface {
 	PlayGame(ctx context.Context, req PlayGameRequest) (*PlayGameResult, error)
 	CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error)
 	GetSessionStatus(ctx context.Context, gameID string) (*domain.GameSession, error)
+	StreamSessionEvents(ctx context.Context, gameID string) (chan domain.GameSessionEvent, error)
+
 }
 
 // ── Request / Response types ──────────────────────────────────────────────────
@@ -80,20 +82,21 @@ type PlayGameResult struct {
 
 type CreateSessionRequest struct {
 	UserID string `json:"user_id" binding:"required"`
-	GameId string`json: "game_id" binding:"required"`
+	GameId string `json:"game_id" binding:"required"`
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
 
 type gameService struct {
-	repo repository.GameRepository
-	log  *zap.SugaredLogger
-	natsClient *messaging.NatsClient
+	repo           repository.GameRepository
+	log            *zap.SugaredLogger
+	natsClient     *messaging.NatsClient
 	sessionService *Service
+	sseRegistry    *SSERegistry
 }
 
-func NewGameService(repo repository.GameRepository, log *zap.SugaredLogger, natsClient *messaging.NatsClient, sessionService *Service) GameService {
-	return &gameService{repo: repo, log: log, natsClient: natsClient, sessionService: sessionService}
+func NewGameService(repo repository.GameRepository, log *zap.SugaredLogger, natsClient *messaging.NatsClient, sessionService *Service, sseRegistry *SSERegistry) GameService {
+	return &gameService{repo: repo, log: log, natsClient: natsClient, sessionService: sessionService, sseRegistry: sseRegistry}
 }
 
 func (s *gameService) ListGames(ctx context.Context) ([]domain.Game, error) {
@@ -103,6 +106,12 @@ func (s *gameService) ListGames(ctx context.Context) ([]domain.Game, error) {
 func (s *gameService) GetGame(ctx context.Context, id string) (*domain.Game, error) {
 	return s.repo.GetGame(ctx, id)
 }
+
+
+func (s *gameService) StreamSessionEvents(ctx context.Context, gameID string) (chan domain.GameSessionEvent, error) {
+	return s.sseRegistry.Register(gameID), nil
+}
+
 
 func (s *gameService) CreateGame(ctx context.Context, req CreateGameRequest) (*domain.Game, error) {
 	game := &domain.Game{

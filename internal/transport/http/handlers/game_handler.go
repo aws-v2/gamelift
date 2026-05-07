@@ -3,20 +3,24 @@ package handlers
 import (
 	"backend/internal/application"
 	"backend/internal/domain"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 type GameHandler struct {
-	svc application.GameService
-	log *zap.SugaredLogger
+	svc         application.GameService
+	log         *zap.SugaredLogger
+	sseRegistry *application.SSERegistry
 }
 
-func NewGameHandler(svc application.GameService, log *zap.SugaredLogger) *GameHandler {
-	return &GameHandler{svc: svc, log: log}
+func NewGameHandler(svc application.GameService, log *zap.SugaredLogger, sseRegistry *application.SSERegistry) *GameHandler {
+	return &GameHandler{svc: svc, log: log, sseRegistry: sseRegistry}
 }
 
 func (h *GameHandler) ListGames(c *gin.Context) {
@@ -88,6 +92,58 @@ func (h *GameHandler) DeleteGame(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
+
+
+
+
+func (h *GameHandler) StreamSessionEvents(c *gin.Context) {
+	sessionID := c.Param("id")
+	w := c.Writer
+	r := c.Request
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		c.String(http.StatusInternalServerError, "streaming not supported")
+		return
+	}
+
+	ch := h.sseRegistry.Register(sessionID)
+	defer h.sseRegistry.Unregister(sessionID, ch)
+
+	h.log.Infow("SSE client connected", "session_id", sessionID)
+
+	for {
+		select {
+		case payload, ok := <-ch:
+			if !ok {
+				return
+			}
+			data, _ := json.Marshal(payload)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+
+			// If we received a provisioned event, we can stop the loop after sending it
+			if payload.AgentURL != "" {
+				return
+			}
+
+		case <-time.After(5 * time.Minute):
+			fmt.Fprintf(w, "data: {\"error\": \"provisioning timed out\"}\n\n")
+			flusher.Flush()
+			return
+
+		case <-r.Context().Done():
+			h.log.Infow("SSE client disconnected", "session_id", sessionID)
+			return
+		}
+	}
+}
+
 
 func (h *GameHandler) GetManifest(c *gin.Context) {
 	id, _ := parseID(c)

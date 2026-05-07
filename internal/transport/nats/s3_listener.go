@@ -29,6 +29,7 @@ type S3Listener struct {
 	backendURL    string
 	appEnv        string
 	logger        *zap.SugaredLogger
+	sseRegistry   *application.SSERegistry
 }
 
 func NewS3Listener(
@@ -39,6 +40,7 @@ func NewS3Listener(
 	backendURL string,
 	appEnv string,
 	logger *zap.SugaredLogger,
+	sseRegistry *application.SSERegistry,
 ) *S3Listener {
 	return &S3Listener{
 		gameRepo:      gameRepo,
@@ -48,6 +50,7 @@ func NewS3Listener(
 		backendURL:    backendURL,
 		appEnv:        appEnv,
 		logger:        logger,
+		sseRegistry:   sseRegistry,
 	}
 }
 
@@ -215,5 +218,20 @@ func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
 			"vm_id", payload.Data.VMID,
 			"agent_url", payload.Data.AgentURL,
 		)
+
+		// // 1. Map InstanceID (VMID) back to GameID
+		// game, err := l.gameRepo.GetGameByVMID(context.Background(), payload.InstanceID)
+		// if err != nil {
+			l.logger.Errorw("---->>>>> sending the sse")
+		// 	return
+		// }
+
+		// 2. Notify SSE listeners using GameID
+		// l.logger.Infow("Notifying SSE listeners", "game_id", game.ID, "agent_url", payload.Data.AgentURL)
+		
+		l.sseRegistry.Notify("89e0f1f4-a6fb-44ab-855a-708d372abc97", domain.GameSessionEvent{
+			AgentURL: payload.Data.AgentURL,
+			VMID:     payload.Data.VMID,
+		})
 	}
 }

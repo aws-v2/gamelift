@@ -57,7 +57,9 @@ func NewRouter(
 
 	// ── 3. Sessions ───────────────────────────────────────────────────────────
 	{
+
 		sessions := base.Group("/games/:id/session")
+		sessions.GET("/events", gameHandler.StreamSessionEvents)
 		sessions.POST("", gameHandler.CreateSession)
 		sessions.GET("/status", gameHandler.GetSessionStatus)
 

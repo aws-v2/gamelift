@@ -50,3 +50,10 @@ type GameReadyEvent struct {
 	NodeID string `json:"node_id"`
 	Port   int    `json:"port"`
 }
+
+// GameSessionEvent represents the payload sent to the client via SSE
+type GameSessionEvent struct {
+	AgentURL string `json:"agent_url,omitempty"`
+	VMID     string `json:"vm_id,omitempty"`
+	Error    string `json:"error,omitempty"`
+}
