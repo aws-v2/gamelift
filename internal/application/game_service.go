@@ -189,8 +189,8 @@ func (s *gameService) InitUpload(ctx context.Context, req InitUploadRequest) (*I
 	// 3. Generate ARN and folder location now that we have an ID
 	// game.ARN            = fmt.Sprintf("arn:serw:game:eu-north-1:%s:game/%s", "userIDVal", game.ID)
 
-	game.ARN = fmt.Sprintf("arn:aws:s3:::%s/%s", "gameliftgames-default", fmt.Sprintf("uploads/games/%s/package.x86_64", game.ID))
-	
+// correct - matches actual stored filename
+game.ARN = fmt.Sprintf("arn:aws:s3:::gameliftgames-default/uploads/games/%s/gamex86_64", game.ID)
 	
 	
 	game.FolderLocation = fmt.Sprintf("./uploads/games/%s", game.ID)
