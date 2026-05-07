@@ -23,10 +23,9 @@ const (
 
 type Game struct {
 	
-	ID             int        `json:"id" gorm:"primaryKey"`
+	ID             string        `json:"id" gorm:"primaryKey"`
 	Name           string     `json:"game_name" gorm:"not null"`
 	FolderLocation string     `json:"game_folder_location"`
-	VMID           string     `json:"vm_id"`
 	UserID         string     `json:"user_id"`
 	ARN            string     `json:"arn" gorm:"uniqueIndex"`
 	Status         GameStatus    `json:"status"`

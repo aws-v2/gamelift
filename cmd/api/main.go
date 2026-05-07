@@ -18,11 +18,7 @@ import (
 	"backend/internal/transport/websocket"
 	"backend/pkg/database"
 	// "net/http"
-
-	// "github.com/nats-io/nats.go"
-	// "go.uber.org/zap"
-	// "backend/internal/config"
-	"backend/internal/domain"
+ 
 	"backend/internal/infrastructure/discovery"
 	// "backend/pkg/database"
 	"backend/pkg/logger"
@@ -98,22 +94,7 @@ func main() {
 	if err := db.Migrate("migrations/sql"); err != nil {
 		logr.Fatalw("Failed to run database migrations", "error", err)
 	}
-
-	// ── Seed demo game on fresh DB ────────────────────────────────────────────
-	var count int64
-	db.GORM.Model(&domain.Game{}).Count(&count)
-	if count == 0 {
-		logr.Info("Seeding initial Demo Game")
-		db.GORM.Create(&domain.Game{
-			ID:             1,
-			Name:           "Demo Game",
-			FolderLocation: "media",
-			VMID:           "test-vm-1",
-			UserID:         "system",
-			ARN:            "arn:serw:game:eu-north-1:system:game/1",
-			Status:         domain.GameStatusActive,
-		})
-	}
+ 
 
 	// ── Wire + start application ──────────────────────────────────────────────
 	c := NewContainer(cfg, db, nc, logr)

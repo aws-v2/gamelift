@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -77,14 +76,7 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 		return err
 	}
 	s.logger.Infow("----f------ddddlk------f--------")
-
-	// 2. Select a node (Mock: using the VMID from the game record for now)
-	targetNode := game.VMID
-	if targetNode == "" {
-		targetNode = "default-worker-node"
-	}
-	s.logger.Infow("--11--------ddddlk------f--------")
-
+ 
 	// 3. Publish Provisioning Event to EC2 Service
 	subj := fmt.Sprintf("%s.ec2.task.provision", s.natsPrefix)
 
@@ -99,7 +91,7 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 			"ram": 4096,
 		},
 		Parameters: map[string]string{
-			"game_id":        strconv.Itoa(game.ID),
+			"game_id":        game.ID,
 			"storage_arn":    game.StorageARN,
 			"headless_bin":   manifest.HeadlessBin,
 			"game_name":      game.Name,
@@ -111,7 +103,7 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 	s.logger.Infow("----dsfssd------ddddlk------f--------")
 
 	data, _ := json.Marshal(payload)
-	s.logger.Infow("Requesting game startup", "game_id", gameID, "node", targetNode)
+	s.logger.Infow("Requesting game startup", "game_id", gameID, "node", "targetNode")
 
 	err = s.natsClient.Publish(messaging.Subject{Service: "ec2", Domain: "task", ActionType: "provision"}, data)
 	if err != nil {
@@ -181,5 +173,5 @@ func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.St
 	}
 
 	// Finalize Status
-	s.gameRepo.UpdateGameStatus(context.Background(),strconv.Itoa(game.ID), domain.GameStatusActive)
+	s.gameRepo.UpdateGameStatus(context.Background(),game.ID, domain.GameStatusActive)
 }

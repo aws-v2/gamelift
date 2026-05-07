@@ -57,7 +57,7 @@ func (l *InstanceLifecycleListener) Start() {
 		)
 
 		// 1. Find the Game by VMID (instance_id)
-		var gameID int
+		var gameID string
 		game, err := l.gameRepo.GetGameByVMID(context.Background(), event.InstanceID)
 		if err == nil {
 			gameID = game.ID

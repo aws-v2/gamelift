@@ -93,6 +93,7 @@ func NewPostgresGameRepository(db *database.DB, log *zap.SugaredLogger) GameRepo
 
 func (r *postgresGameRepository) GetGameByName(ctx context.Context, name string) (*domain.Game, error) {
 	var game domain.Game
+
 	if err := r.db.GORM.WithContext(ctx).Where("name = ?", name).First(&game).Error; err != nil {
 		return nil, fmt.Errorf("game %s not found: %w", name, err)
 	}
@@ -114,11 +115,11 @@ func (r *postgresGameRepository) ListGames(ctx context.Context) ([]domain.Game, 
 	return games, nil
 }
 func (r *postgresGameRepository) GetGame(ctx context.Context, id string) (*domain.Game, error) {
-	var game domain.Game
-	if err := r.db.GORM.WithContext(ctx).First(&game, id).Error; err != nil {
-		return nil, fmt.Errorf("game %d not found: %w", id, err)
-	}
-	return &game, nil
+    var game domain.Game
+    if err := r.db.GORM.WithContext(ctx).First(&game, "id = ?", id).Error; err != nil {
+        return nil, fmt.Errorf("game %s not found: %w", id, err)  // %s not %d — id is a string
+    }
+    return &game, nil
 }
 func (r *postgresGameRepository) UpdateGameStatus(ctx context.Context, id string, status domain.GameStatus) error {
 	return r.db.GORM.WithContext(ctx).Model(&domain.Game{}).Where("id = ?", id).Update("status", status).Error
