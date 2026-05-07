@@ -179,7 +179,6 @@ func (l *S3Listener) downloadFile(url, dest string) error {
 }
 
 func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
-	l.logger.Debugw("Received lifecycle message", "raw", string(msg.Data))
 
 	var payload struct {
 		InstanceID string `json:"instance_id"`
@@ -187,12 +186,21 @@ func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
 		Stage      string `json:"stage"`
 		Message    string `json:"message"`
 		Timestamp  string `json:"timestamp"`
+		Data       *struct {
+			VMID     string `json:"vm_id"`
+			AgentURL string `json:"agent_url"`
+		} `json:"data,omitempty"`
 	}
 
 	if err := json.Unmarshal(msg.Data, &payload); err != nil {
 		l.logger.Errorw("Failed to unmarshal lifecycle event", "error", err)
 		return
 	}
+
+
+
+	// l.logger.Infow("**eceived lifecycle message", "raw",payload.Data.AgentURL)
+
 
 	l.logger.Infow("EC2 Lifecycle Event",
 		"instance_id", payload.InstanceID,
@@ -201,4 +209,11 @@ func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
 		"message", payload.Message,
 		"timestamp", payload.Timestamp,
 	)
+
+	if payload.Stage == "PROVISIONED" && payload.Data != nil {
+		l.logger.Infow("Instance provisioned details",
+			"vm_id", payload.Data.VMID,
+			"agent_url", payload.Data.AgentURL,
+		)
+	}
 }
