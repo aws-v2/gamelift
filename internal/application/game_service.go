@@ -40,6 +40,7 @@ type CreateGameRequest struct {
 	Name           string `json:"name"    binding:"required"`
 	FolderLocation string `json:"folder_location"`
 	UserID         string `json:"user_id"`
+	Manifest       Manifest `json:"manifest" binding:"required"`
 }
 
 type UpdateGameRequest struct {
@@ -51,7 +52,7 @@ type UpdateGameRequest struct {
 type Manifest struct {
 	Name string `json:"name" binding:"required"`
 	PlayerNode string `json:"player_node" binding:"required"`
-	SyncNodes []string `json:"sync_nodes"`
+	SyncNodes []domain.SyncNode `json:"sync_nodes"`
 	Version string `json:"version"`	
 	HeadlessBin string `json:"headless_bin"`
 	MainScene string `json:"main_scene"`
@@ -114,14 +115,31 @@ func (s *gameService) StreamSessionEvents(ctx context.Context, gameID string) (c
 
 
 func (s *gameService) CreateGame(ctx context.Context, req CreateGameRequest) (*domain.Game, error) {
+	manifestID := uuid.New().String()
 	game := &domain.Game{
 		Name:           req.Name,
 		FolderLocation: req.FolderLocation,
 		UserID:         req.UserID,
 		Status:         domain.GameStatusPending,
+		Manifest:       manifestID,
 	}
 	if err := s.repo.CreateGame(ctx, game); err != nil {
 		return nil, fmt.Errorf("create game: %w", err)
+	}
+	manifest := domain.GameManifest{
+		ID: manifestID,
+		Name: req.Name,
+		PlayerNode: req.Manifest.PlayerNode,
+		SyncNodes: req.Manifest.SyncNodes,
+		Version: req.Manifest.Version,
+		HeadlessBin: req.Manifest.HeadlessBin,
+		MainScene: req.Manifest.MainScene,
+	}
+	if err := s.repo.SetManifest(ctx, game.ID, manifest); err != nil {
+		return nil, fmt.Errorf("set manifest: %w", err)
+	}
+	if err := s.repo.SetManifest(ctx, game.ID, manifest); err != nil {
+		return nil, fmt.Errorf("set manifest: %w", err)
 	}
 	return game, nil
 }

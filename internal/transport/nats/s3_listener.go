@@ -229,7 +229,7 @@ func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
 		// 2. Notify SSE listeners using GameID
 		// l.logger.Infow("Notifying SSE listeners", "game_id", game.ID, "agent_url", payload.Data.AgentURL)
 		
-		l.sseRegistry.Notify("89e0f1f4-a6fb-44ab-855a-708d372abc97", domain.GameSessionEvent{
+		l.sseRegistry.Notify("15b78496-34c7-4e67-a67a-c7302492d2b6", domain.GameSessionEvent{
 			AgentURL: payload.Data.AgentURL,
 			VMID:     payload.Data.VMID,
 		})

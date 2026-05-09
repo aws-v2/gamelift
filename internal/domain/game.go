@@ -42,12 +42,16 @@ type SyncNode struct {
 }
 
 type GameManifest struct {
-	Name        string     `json:"name"`
-	Version     string     `json:"version"`
-	HeadlessBin string     `json:"headless_bin"`
-	MainScene   string     `json:"main_scene"`
-	PlayerNode  string     `json:"player_node"`
-	SyncNodes   []SyncNode `json:"sync_nodes"`
+    ID          string     `json:"id"           gorm:"primaryKey"`
+    GameID      string     `json:"game_id"      gorm:"index"`
+    Name        string     `json:"name"`
+    Version     string     `json:"version"`
+    HeadlessBin string     `json:"headless_bin"`
+    MainScene   string     `json:"main_scene"`
+    PlayerNode  string     `json:"player_node"`
+    SyncNodes   []SyncNode `json:"sync_nodes"   gorm:"serializer:json"`
+    CreatedAt   time.Time  `json:"created_at"`
+    UpdatedAt   time.Time  `json:"updated_at"`
 }
 type CreateSessionRequest struct {
 	GameID    string `json:"game_id" binding:"required"`

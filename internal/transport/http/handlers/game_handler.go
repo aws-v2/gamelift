@@ -49,6 +49,7 @@ func (h *GameHandler) GetGame(c *gin.Context) {
 
 func (h *GameHandler) CreateGame(c *gin.Context) {
 	var req application.CreateGameRequest
+	req.UserID=c.GetString("userID")
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
