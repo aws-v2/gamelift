@@ -132,6 +132,7 @@ func (s *gameService) CreateGame(ctx context.Context, req CreateGameRequest) (*d
 		PlayerNode: req.Manifest.PlayerNode,
 		SyncNodes: req.Manifest.SyncNodes,
 		Version: req.Manifest.Version,
+
 		HeadlessBin: req.Manifest.HeadlessBin,
 		MainScene: req.Manifest.MainScene,
 	}
@@ -319,11 +320,13 @@ func (s *gameService) CreateSession(ctx context.Context, gameID string, req doma
 	session.AgentWSURL=ses.AgentWSURL
 	session.Token=ses.Token
 	session.NodeID=ses.NodeID
-
+session.ID=ses.ID
 	
 	// if err := s.repo.CreateSession(ctx, session); err != nil {
 	// 	return nil, fmt.Errorf("create session: %w", err)
 	// }
+
+	fmt.Printf("session check here -*-> %s", session.ID)
 
 	return session, nil
 }

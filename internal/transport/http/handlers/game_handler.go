@@ -98,7 +98,8 @@ func (h *GameHandler) DeleteGame(c *gin.Context) {
 
 
 func (h *GameHandler) StreamSessionEvents(c *gin.Context) {
-	sessionID := c.Param("id")
+	// sessionID := c.Param("id")
+	 sessionID := c.Param("instanceId") 
 	w := c.Writer
 	r := c.Request
 
@@ -219,6 +220,7 @@ func (h *GameHandler) CreateSession(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusCreated, session)
 }
 
@@ -238,3 +240,31 @@ func parseID(c *gin.Context) (uint, error) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	return uint(id), err
 }
+
+
+
+// func (h *GameHandler) StreamInstanceEvents(c *gin.Context) {
+// 	instanceID := c.Param("instanceId")
+
+// 	// ch := h.sseBroker.Register(instanceID)
+// 	// defer h.sseBroker.Unregister(instanceID)
+
+
+// 	ch := h.sseRegistry.Register(sessionID)
+// 	defer h.sseRegistry.Unregister(sessionID, ch)
+
+// 	c.Writer.Header().Set("Content-Type", "text/event-stream")
+// 	c.Writer.Header().Set("Cache-Control", "no-cache")
+// 	c.Writer.Header().Set("Connection", "keep-alive")
+
+// 	select {
+// 	case payload := <-ch:
+// 		fmt.Fprintf(c.Writer, "sse-data: %s\n\n", payload)
+// 		c.Writer.Flush()
+// 	case <-time.After(5 * time.Minute):
+// 		fmt.Fprintf(c.Writer, "sse-data: {\"error\":\"timeout\"}\n\n")
+// 		c.Writer.Flush()
+// 	case <-c.Request.Context().Done():
+// 		return
+// 	}
+// }

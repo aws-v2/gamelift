@@ -17,27 +17,34 @@ import (
 )
 
 func NewRouter(
-	authSvc      repository.AuthService,
-	gameHandler  *handlers.GameHandler,
-	hub          *websocket.Hub,
-	natsClient   *messaging.NatsClient,
+	authSvc repository.AuthService,
+	gameHandler *handlers.GameHandler,
+	hub *websocket.Hub,
+	natsClient *messaging.NatsClient,
 	provisioningSvc *application.ProvisioningService,
-	storage      *storage.MinIOAdapter,
-	logger       *zap.SugaredLogger,
-	cfg          *config.Config,
+	storage *storage.MinIOAdapter,
+	logger *zap.SugaredLogger,
+	cfg *config.Config,
 ) *gin.Engine {
 	r := gin.Default()
 
-	authHandler   := handlers.NewAuthHandler(authSvc, logger)
-	wsHandler     := websocket.NewWebSocketHandler(hub)
+	authHandler := handlers.NewAuthHandler(authSvc, logger)
+	wsHandler := websocket.NewWebSocketHandler(hub)
 	webrtcHandler := handlers.NewWebRTCSignalingHandler(logger)
-	docsSvc       := application.NewDocsService(cfg.DocsPath)
-	docsHandler   := handlers.NewDocsHandler(docsSvc)
+	docsSvc := application.NewDocsService(cfg.DocsPath)
+	docsHandler := handlers.NewDocsHandler(docsSvc)
 
 	base := r.Group("/api/v1/gamelift")
 	base.Use(middleware.AuthMiddleware())
 
 	// ── 1. Docs ───────────────────────────────────────────────────────────────
+
+	{
+		sse := base.Group("/fleet")
+
+		sse.GET("/instances/:instanceId/events", gameHandler.StreamSessionEvents)
+
+	}
 	{
 		pub := base.Group("/docs")
 		pub.GET("", docsHandler.GetPublicManifest)
