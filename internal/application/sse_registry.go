@@ -48,7 +48,8 @@ func (r *SSERegistry) Notify(id string, event domain.GameSessionEvent) {
         return
     }
 
-    log.Printf("[SSERegistry] Notify HIT — sending to id=%s agent_url=%s", id, event.AgentURL)
+    log.Printf("[SSERegistry] Notify HIT — sending to id=%s", id)
+
     for _, ch := range channels {
         select {
         case ch <- event:
@@ -56,7 +57,6 @@ func (r *SSERegistry) Notify(id string, event domain.GameSessionEvent) {
         }
     }
 }
-
 func (r *SSERegistry) Unregister(id string, ch chan domain.GameSessionEvent) {
     r.mu.Lock()
     defer r.mu.Unlock()

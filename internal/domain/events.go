@@ -58,3 +58,13 @@ type GameSessionEvent struct {
 	VMID     string `json:"vm_id,omitempty"`
 	Error    string `json:"error,omitempty"`
 }
+
+
+
+type EventGameSessionError struct{
+	SessionID string `json:"session_id"`
+	Error string `json:"error"`
+	
+}
+
+ 

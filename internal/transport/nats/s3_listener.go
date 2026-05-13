@@ -184,6 +184,8 @@ func (l *S3Listener) downloadFile(url, dest string) error {
 const (
 	EventInstanceStarted = "INSTANCE_STARTED"
 	EventInstanceStopped = "INSTANCE_STOPPED"
+	EventInstanceError = "INSTANCE_ERROR"
+
 	EventHealthUpdate    = "HEALTH_UPDATE"
 	EventProvisioningProgress = "PROVISIONING_PROGRESS"
 	 EventInstanceProvisioned = "INSTANCE_PROVISIONED"
@@ -211,28 +213,6 @@ type InstanceMetadata struct {
 	AMIID        string `json:"ami_id"`
 }
 func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
-
-
-
-
-	// event := InstanceLifecycleEvent{
-	// 	CorrelationID: correlationID,
-	// 	InstanceID:    instance.ID,
-	// 	EventType:     eventType,
-	// 	Timestamp:     time.Now().Format(time.RFC3339),
-	// 	Payload: domain.InstanceLifecyclePayload{
-	// 		IPAddress:   instance.IP, // ← was empty before when DHCP hadn't resolved yet
-	// 		VPCID:       instance.VPCID,
-	// 		ServicePort: 22,
-
-	// 		AgentWS: agentWS,
-	// 		Metadata: domain.InstanceMetadata{
-	// 			InstanceType: "t3.medium",
-	// 			AMIID:        instance.Image,
-	// 		},
-	// 	},
-	// }
-
 
 
 
@@ -278,6 +258,25 @@ if event.EventType == EventInstanceProvisioned && event.Payload.AgentWS != "" {
     l.sseRegistry.Notify(event.SessionID, domain.GameSessionEvent{
         AgentURL: event.Payload.AgentWS,
         VMID:     event.InstanceID,
-    })
+})
 }
+
+
+
+
+if event.EventType == EventInstanceError {
+
+    l.logger.Infow("Instance error — notifying SSE",
+        "instance_id", event.InstanceID,
+        "agent_ws", event.Payload.AgentWS,
+        "session_id", event.SessionID,
+    )
+
+    l.sseRegistry.Notify(event.SessionID, domain.GameSessionEvent{
+		Error: "Instance error",
+})
+}
+
+
+
 }
