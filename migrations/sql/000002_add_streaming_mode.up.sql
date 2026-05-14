@@ -33,3 +33,6 @@ CREATE TABLE sessions (
 );
 
 CREATE INDEX idx_sessions_active ON sessions (game_id, user_id, status, expires_at);
+
+ALTER TABLE games
+ALTER COLUMN id TYPE TEXT USING id::TEXT;
