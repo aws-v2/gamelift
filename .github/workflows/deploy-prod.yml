@@ -52,7 +52,9 @@ jobs:
       with:
         context: .
         push: true
-        tags: qarani/gamelift-backend:prod
+        tags: |
+          qarani/gamelift-backend:prod-${{ github.sha }}
+          qarani/gamelift-backend:prod
 
   prod-deploy:
     needs: prod-build
@@ -75,7 +77,7 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             docker network create aws-prod-network || true
-            docker pull qarani/gamelift-backend:prod
+            docker pull qarani/gamelift-backend:prod-${{ github.sha }}
             docker stop gamelift-backend-prod || true
             docker service rm gamelift-backend-prod || true
 
@@ -108,7 +110,7 @@ jobs:
               --env S3_SECRET_KEY=minio-prod-password \
               --env S3_USE_SSL=false \
               --env SQLITE_PATH=gamelift_fallback.db \
-              qarani/gamelift-backend:prod
+              qarani/gamelift-backend:prod-${{ github.sha }}
 
 
 
