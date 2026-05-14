@@ -181,7 +181,7 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 	h.log.Info("InitUpload 1", "req", req)
 	result, err := h.svc.InitUpload(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to init upload"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to init upload"+err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
