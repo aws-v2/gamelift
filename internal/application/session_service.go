@@ -60,6 +60,8 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		ExpiresAt: time.Now().Add(2 * time.Hour),
 	}
 
+	fmt.Printf("thisi si theor sessionid %s\n",session.ID)
+
 	s.logger.Infow("the session is : %s", session)
 
 	if err := s.repo.Create(ctx, session); err != nil {
@@ -71,13 +73,13 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 	if s.debug {
 	s.logger.Infow("------------------s------")
 		
-		session.Status = StatusReady
-		session.AgentWSURL = "ws://localhost:9030/game"
-		if err := s.repo.MarkReady(ctx, session.ID, session.AgentWSURL, "local"); err != nil {
-			s.logger.Warnw("failed to persist debug ready status", "session_id", session.ID, "error", err)
-		}
-		s.logger.Infow("debug mode: session marked ready with local agent", "session_id", session.ID)
-		return session, nil
+		// session.Status = StatusReady
+		// session.AgentWSURL = "ws://localhost:9030/game"
+		// if err := s.repo.MarkReady(ctx, session.ID, session.AgentWSURL, "local"); err != nil {
+		// 	s.logger.Warnw("failed to persist debug ready status", "session_id", session.ID, "error", err)
+		// }
+		// s.logger.Infow("debug mode: session marked ready with local agent", "session_id", session.ID)
+		// return session, nil
 	}else{
 	s.logger.Infow("----------------f--------")
 
@@ -89,9 +91,9 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 			_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
 			return nil, fmt.Errorf("invalid game_id: %w", err)
 		}
-	s.logger.Infow("------------k----f--------")
+	fmt.Printf("------------k----f-------original sessio id - %s",session.ID)
 
-		s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState)
+		s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState, session.ID)
 		// s.natsClient.Request(messaging.GetProvisionGameSubject(), []byte(session.ID), 10*time.Second)
 	}
 
@@ -101,7 +103,7 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		return nil, fmt.Errorf("invalid game_id: %w", err)
 	}
 
-	if err := s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState); err != nil {
+	if err := s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState,session.ID); err != nil {
 		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
 		return nil, fmt.Errorf("provision game: %w", err)
 	}
@@ -110,6 +112,14 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		"session_id", session.ID,
 		"game_id", req.GameID,
 	)
+
+
+	fmt.Printf("session check here --ff> s")
+	fmt.Printf("session check here --ff> s")
+	fmt.Printf("session check here --ff> %v", session)
+	fmt.Printf("session check here --ff> s")
+	fmt.Printf("session check here --ff> %s",session.ID)
+	fmt.Printf("session check here --ff> s")
 
 	return session, nil
 }

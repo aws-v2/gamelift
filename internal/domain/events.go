@@ -28,6 +28,7 @@ type EC2ProvisionRequest struct {
 	UserID     string            `json:"user_id"`
 	StorageARN string            `json:"storage_arn"`
 	Manifest   GameManifest      `json:"manifest"`
+	SessionID string `json:"session_id"`
 }
 
 // S3PresignedURLResponse defines the expected response from the S3 service
@@ -57,3 +58,13 @@ type GameSessionEvent struct {
 	VMID     string `json:"vm_id,omitempty"`
 	Error    string `json:"error,omitempty"`
 }
+
+
+
+type EventGameSessionError struct{
+	SessionID string `json:"session_id"`
+	Error string `json:"error"`
+	
+}
+
+ 

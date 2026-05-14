@@ -181,57 +181,102 @@ func (l *S3Listener) downloadFile(url, dest string) error {
 	return err
 }
 
+const (
+	EventInstanceStarted = "INSTANCE_STARTED"
+	EventInstanceStopped = "INSTANCE_STOPPED"
+	EventInstanceError = "INSTANCE_ERROR"
+
+	EventHealthUpdate    = "HEALTH_UPDATE"
+	EventProvisioningProgress = "PROVISIONING_PROGRESS"
+	 EventInstanceProvisioned = "INSTANCE_PROVISIONED"
+)
+
+// InstanceLifecycleEvent represents the event published to NATS for Network Service integration.
+type InstanceLifecycleEvent struct {
+	CorrelationID string                  `json:"correlation_id"`
+	InstanceID    string                  `json:"instance_id"`
+	EventType     string                  `json:"event_type"`
+	Timestamp     string                  `json:"timestamp"`
+	Payload       InstanceLifecyclePayload `json:"payload"`
+	AgentURL    string           `json:"agent_url,omitempty"`
+}
+
+type InstanceLifecyclePayload struct {
+	IPAddress   string            `json:"ip_address"`
+	VPCID       string            `json:"vpc_id"`
+	ServicePort int               `json:"service_port"`
+	Metadata    InstanceMetadata `json:"metadata"`
+	AgentWS     string            `json:"agent_ws,omitempty"`
+}
+type InstanceMetadata struct {
+	InstanceType string `json:"instance_type"`
+	AMIID        string `json:"ami_id"`
+}
 func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
 
-	var payload struct {
-		InstanceID string `json:"instance_id"`
-		EventType  string `json:"event_type"`
-		Stage      string `json:"stage"`
-		Message    string `json:"message"`
-		Timestamp  string `json:"timestamp"`
-		Data       *struct {
-			VMID     string `json:"vm_id"`
-			AgentURL string `json:"agent_url"`
-		} `json:"data,omitempty"`
-	}
-
-	if err := json.Unmarshal(msg.Data, &payload); err != nil {
-		l.logger.Errorw("Failed to unmarshal lifecycle event", "error", err)
-		return
-	}
 
 
 
-	// l.logger.Infow("**eceived lifecycle message", "raw",payload.Data.AgentURL)
+var event struct {
+    CorrelationID string `json:"correlation_id"`
+    InstanceID    string `json:"instance_id"`
+    EventType     string `json:"event_type"`
+    Timestamp     string `json:"timestamp"`
+	SessionID string `json:"session_id"`
 
 
-	l.logger.Infow("EC2 Lifecycle Event",
-		"instance_id", payload.InstanceID,
-		"event_type", payload.EventType,
-		"stage", payload.Stage,
-		"message", payload.Message,
-		"timestamp", payload.Timestamp,
-	)
+    Payload       struct {
+        IPAddress   string `json:"ip_address"`
+        VPCID       string `json:"vpc_id"`
+        ServicePort int    `json:"service_port"`
+        AgentWS     string `json:"agent_ws"`
+    } `json:"payload"`
+}
 
-	if payload.Stage == "PROVISIONED" && payload.Data != nil {
-		l.logger.Infow("Instance provisioned details",
-			"vm_id", payload.Data.VMID,
-			"agent_url", payload.Data.AgentURL,
-		)
 
-		// // 1. Map InstanceID (VMID) back to GameID
-		// game, err := l.gameRepo.GetGameByVMID(context.Background(), payload.InstanceID)
-		// if err != nil {
-			l.logger.Errorw("---->>>>> sending the sse")
-		// 	return
-		// }
+ 
+    if err := json.Unmarshal(msg.Data, &event); err != nil {
+        l.logger.Errorw("Failed to unmarshal lifecycle event", "error", err)
+        return
+    }
 
-		// 2. Notify SSE listeners using GameID
-		// l.logger.Infow("Notifying SSE listeners", "game_id", game.ID, "agent_url", payload.Data.AgentURL)
-		
-		l.sseRegistry.Notify("15b78496-34c7-4e67-a67a-c7302492d2b6", domain.GameSessionEvent{
-			AgentURL: payload.Data.AgentURL,
-			VMID:     payload.Data.VMID,
-		})
-	}
+    l.logger.Infow("EC2 Lifecycle Event",
+        "correlation_id", event.CorrelationID,
+        "instance_id", event.InstanceID,
+        "event_type", event.EventType,
+        "agent_url", event.Payload.AgentWS,
+        "timestamp", event.Timestamp,
+    )
+
+if event.EventType == EventInstanceProvisioned && event.Payload.AgentWS != "" {
+    l.logger.Infow("Instance provisioned — notifying SSE",
+        "instance_id", event.InstanceID,
+        "agent_ws", event.Payload.AgentWS,
+        "session_id", event.SessionID,
+    )
+
+    l.sseRegistry.Notify(event.SessionID, domain.GameSessionEvent{
+        AgentURL: event.Payload.AgentWS,
+        VMID:     event.InstanceID,
+})
+}
+
+
+
+
+if event.EventType == EventInstanceError {
+
+    l.logger.Infow("Instance error — notifying SSE",
+        "instance_id", event.InstanceID,
+        "agent_ws", event.Payload.AgentWS,
+        "session_id", event.SessionID,
+    )
+
+    l.sseRegistry.Notify(event.SessionID, domain.GameSessionEvent{
+		Error: "Instance error",
+})
+}
+
+
+
 }
