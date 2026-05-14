@@ -143,6 +143,7 @@ type Container struct {
 	NodeAgent         *application.NodeAgent
 	GameStateListener *appNats.GameStateListener
 	InstanceListener  *appNats.InstanceLifecycleListener
+	SSERegistry       *application.SSERegistry
 }
 
 // NewContainer wires every dependency and returns a ready Container.
@@ -176,17 +177,20 @@ func NewContainer(cfg *config.Config, db *database.DB, nc *nats.Conn, logr *zap.
 	// ── websocket hub ─────────────────────────────────────────────────────────
 	hub := websocket.NewHub(logr)
 
+	// ── SSE registry ─────────────────────────────────────────────────────────
+	sseRegistry := application.NewSSERegistry()
+
 
 	// ── Game service + handler ────────────────────────────────────────────────
-	gameService := application.NewGameService(gameRepo, logr, natsClient,sessionSvc)
-	gameHandler := handlers.NewGameHandler(gameService, logr)
+	gameService := application.NewGameService(gameRepo, logr, natsClient, sessionSvc, sseRegistry)
+	gameHandler := handlers.NewGameHandler(gameService, logr, sseRegistry)
 
 
 
 
 
 	// ── background listeners ──────────────────────────────────────────────────
-	s3Listener        := appNats.NewS3Listener(gameRepo, natsClient, validationSvc, minioAdapter, cfg.PublicURL, cfg.AppEnv, logr)
+	s3Listener        := appNats.NewS3Listener(gameRepo, natsClient, validationSvc, minioAdapter, cfg.PublicURL, cfg.AppEnv, logr, sseRegistry)
 	nodeAgent         := application.NewNodeAgent("local-dev-node", gameRepo, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.AppEnv, logr)
 	gameStateListener := appNats.NewGameStateListener(natsClient, hub, cfg.AppEnv, logr)
 	instanceListener  := appNats.NewInstanceLifecycleListener(gameRepo, natsClient, hub, cfg.AppEnv, logr)
@@ -203,6 +207,7 @@ func NewContainer(cfg *config.Config, db *database.DB, nc *nats.Conn, logr *zap.
 		NodeAgent:         nodeAgent,
 		GameStateListener: gameStateListener,
 		InstanceListener:  instanceListener,
+		SSERegistry:       sseRegistry,
 	}
 }
 

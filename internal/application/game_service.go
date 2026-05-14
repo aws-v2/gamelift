@@ -30,6 +30,8 @@ type GameService interface {
 	PlayGame(ctx context.Context, req PlayGameRequest) (*PlayGameResult, error)
 	CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error)
 	GetSessionStatus(ctx context.Context, gameID string) (*domain.GameSession, error)
+	StreamSessionEvents(ctx context.Context, gameID string) (chan domain.GameSessionEvent, error)
+
 }
 
 // ── Request / Response types ──────────────────────────────────────────────────
@@ -38,6 +40,7 @@ type CreateGameRequest struct {
 	Name           string `json:"name"    binding:"required"`
 	FolderLocation string `json:"folder_location"`
 	UserID         string `json:"user_id"`
+	Manifest       Manifest `json:"manifest" binding:"required"`
 }
 
 type UpdateGameRequest struct {
@@ -49,7 +52,7 @@ type UpdateGameRequest struct {
 type Manifest struct {
 	Name string `json:"name" binding:"required"`
 	PlayerNode string `json:"player_node" binding:"required"`
-	SyncNodes []string `json:"sync_nodes"`
+	SyncNodes []domain.SyncNode `json:"sync_nodes"`
 	Version string `json:"version"`	
 	HeadlessBin string `json:"headless_bin"`
 	MainScene string `json:"main_scene"`
@@ -80,20 +83,21 @@ type PlayGameResult struct {
 
 type CreateSessionRequest struct {
 	UserID string `json:"user_id" binding:"required"`
-	GameId string`json: "game_id" binding:"required"`
+	GameId string `json:"game_id" binding:"required"`
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
 
 type gameService struct {
-	repo repository.GameRepository
-	log  *zap.SugaredLogger
-	natsClient *messaging.NatsClient
+	repo           repository.GameRepository
+	log            *zap.SugaredLogger
+	natsClient     *messaging.NatsClient
 	sessionService *Service
+	sseRegistry    *SSERegistry
 }
 
-func NewGameService(repo repository.GameRepository, log *zap.SugaredLogger, natsClient *messaging.NatsClient, sessionService *Service) GameService {
-	return &gameService{repo: repo, log: log, natsClient: natsClient, sessionService: sessionService}
+func NewGameService(repo repository.GameRepository, log *zap.SugaredLogger, natsClient *messaging.NatsClient, sessionService *Service, sseRegistry *SSERegistry) GameService {
+	return &gameService{repo: repo, log: log, natsClient: natsClient, sessionService: sessionService, sseRegistry: sseRegistry}
 }
 
 func (s *gameService) ListGames(ctx context.Context) ([]domain.Game, error) {
@@ -104,15 +108,39 @@ func (s *gameService) GetGame(ctx context.Context, id string) (*domain.Game, err
 	return s.repo.GetGame(ctx, id)
 }
 
+
+func (s *gameService) StreamSessionEvents(ctx context.Context, gameID string) (chan domain.GameSessionEvent, error) {
+	return s.sseRegistry.Register(gameID), nil
+}
+
+
 func (s *gameService) CreateGame(ctx context.Context, req CreateGameRequest) (*domain.Game, error) {
+	manifestID := uuid.New().String()
 	game := &domain.Game{
 		Name:           req.Name,
 		FolderLocation: req.FolderLocation,
 		UserID:         req.UserID,
 		Status:         domain.GameStatusPending,
+		Manifest:       manifestID,
 	}
 	if err := s.repo.CreateGame(ctx, game); err != nil {
 		return nil, fmt.Errorf("create game: %w", err)
+	}
+	manifest := domain.GameManifest{
+		ID: manifestID,
+		Name: req.Name,
+		PlayerNode: req.Manifest.PlayerNode,
+		SyncNodes: req.Manifest.SyncNodes,
+		Version: req.Manifest.Version,
+
+		HeadlessBin: req.Manifest.HeadlessBin,
+		MainScene: req.Manifest.MainScene,
+	}
+	if err := s.repo.SetManifest(ctx, game.ID, manifest); err != nil {
+		return nil, fmt.Errorf("set manifest: %w", err)
+	}
+	if err := s.repo.SetManifest(ctx, game.ID, manifest); err != nil {
+		return nil, fmt.Errorf("set manifest: %w", err)
 	}
 	return game, nil
 }
@@ -189,8 +217,8 @@ func (s *gameService) InitUpload(ctx context.Context, req InitUploadRequest) (*I
 	// 3. Generate ARN and folder location now that we have an ID
 	// game.ARN            = fmt.Sprintf("arn:serw:game:eu-north-1:%s:game/%s", "userIDVal", game.ID)
 
-	game.ARN = fmt.Sprintf("arn:aws:s3:::%s/%s", "gameliftgames-default", fmt.Sprintf("uploads/games/%s/package.x86_64", game.ID))
-	
+// correct - matches actual stored filename
+game.ARN = fmt.Sprintf("arn:aws:s3:::gameliftgames-default/uploads/games/%s/gamex86_64", game.ID)
 	
 	
 	game.FolderLocation = fmt.Sprintf("./uploads/games/%s", game.ID)
@@ -271,6 +299,9 @@ func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest) (*PlayG
 
 
 
+
+
+
 func (s *gameService) CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error) {
 	session := &domain.GameSession{
 		ID: uuid.New().String(),
@@ -292,11 +323,13 @@ func (s *gameService) CreateSession(ctx context.Context, gameID string, req doma
 	session.AgentWSURL=ses.AgentWSURL
 	session.Token=ses.Token
 	session.NodeID=ses.NodeID
-
+session.ID=ses.ID
 	
 	// if err := s.repo.CreateSession(ctx, session); err != nil {
 	// 	return nil, fmt.Errorf("create session: %w", err)
 	// }
+
+	fmt.Printf("session check here -*-> %s", session.ID)
 
 	return session, nil
 }

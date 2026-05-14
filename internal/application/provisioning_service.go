@@ -55,7 +55,7 @@ func NewProvisioningService(
 }
 
 // ProvisionGame triggers the on-demand startup of a stored game.
-func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode) error {
+func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode,sessionID string) error {
 
 	game, err := s.gameRepo.GetGame(context.Background(), gameID)
 	if err != nil {
@@ -100,6 +100,7 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 		},
 		UserID: game.UserID,
 		StorageARN: game.ARN,
+		SessionID:sessionID,
 		Manifest: domain.GameManifest{
 			Name: game.Name,
 			HeadlessBin: "server/hh.x86_64",

@@ -21,7 +21,7 @@ type GameRepository interface {
 	GetGameByName(ctx context.Context, name string) (*domain.Game, error)
 	UpdateGameStatus(ctx context.Context, id string, status domain.GameStatus) error
 	GetManifest(ctx context.Context, id string) (map[string]any, error)
-	SetManifest(ctx context.Context, id string, manifest map[string]any) error
+	SetManifest(ctx context.Context, id string, manifest domain.GameManifest) error
 	GetGameByVMID(ctx context.Context, vmid string) (*domain.Game, error)
 	UpdateStatusByVMID(ctx context.Context, vmid string, status domain.GameStatus) error
 	CreateSession(ctx context.Context, session *domain.GameSession) error
@@ -157,8 +157,8 @@ func (r *postgresGameRepository) GetManifest(ctx context.Context, id string) (ma
 	}, nil
 }
 
-func (r *postgresGameRepository) SetManifest(ctx context.Context, id string, manifest map[string]any) error {
-	return r.db.GORM.WithContext(ctx).Model(&domain.Game{}).Where("id = ?", id).Updates(manifest).Error
+func (r *postgresGameRepository) SetManifest(ctx context.Context, gameID string, manifest domain.GameManifest) error {
+    return r.db.GORM.WithContext(ctx).Create(&manifest).Error
 }
 func (r *postgresGameRepository) CreateSession(ctx context.Context, session *domain.GameSession) error {
 	return r.db.GORM.WithContext(ctx).Create(session).Error
