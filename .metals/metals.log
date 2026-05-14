@@ -1,0 +1,314 @@
+2026.05.09 17:20:41 INFO  Started: Metals version 1.6.7 in folders '/home/martin/Documents/aws-v4/dev/gamelift_banckend' for client Visual Studio Code 1.118.1.
+2026.05.09 17:20:41 INFO  Memory monitor started
+2026.05.09 17:20:47 WARN  Using H2 2.4.240 which is newer than the version Flyway has been verified with. The latest verified version of H2 is 2.3.232.
+2026.05.09 17:20:48 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:49 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 2
+2026.05.09 17:20:49 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:49 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:50 WARN  no build tool detected in workspace '/home/martin/Documents/aws-v4/dev/gamelift_banckend'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
+2026.05.09 17:20:50 WARN  Build server is not auto-connectable.
+2026.05.09 17:20:50 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:20:52 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+May 09, 2026 5:20:53 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 4
+2026.05.09 17:20:53 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:53 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:53 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:53 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:53 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:54 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 6
+2026.05.09 17:20:53 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:53 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:53 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:55 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:55 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:55 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:55 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:55 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:55 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:55 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:55 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:55 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 12
+May 09, 2026 5:20:55 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 22
+2026.05.09 17:20:55 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+May 09, 2026 5:20:56 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 20
+May 09, 2026 5:20:56 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 21
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:56 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 19
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:56 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:56 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 24
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:56 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 23
+2026.05.09 17:20:56 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:56 INFO  QDox parse error in file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java (full report at: "/home/martin/Documents/aws-v4/dev/gamelift_banckend/.metals/.reports/metals-full/2026-05-09/r_qdox-error_17-20-56-735.md")
+May 09, 2026 5:20:56 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 27
+2026.05.09 17:20:56 INFO  Created report: Optional[file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java]
+2026.05.09 17:20:56 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:56 INFO  QDox parse error in file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java (full report at: "/home/martin/Documents/aws-v4/dev/gamelift_banckend/.metals/.reports/metals-full/2026-05-09/r_qdox-error_17-20-56-735.md")
+2026.05.09 17:20:57 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+2026.05.09 17:20:57 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:57 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 28
+May 09, 2026 5:20:57 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 34
+May 09, 2026 5:20:57 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 32
+May 09, 2026 5:20:57 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 29
+May 09, 2026 5:20:57 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 33
+2026.05.09 17:20:57 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:57 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:57 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:58 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 35
+2026.05.09 17:20:57 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:57 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:58 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 31
+2026.05.09 17:20:58 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:58 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 39
+May 09, 2026 5:20:58 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 38
+2026.05.09 17:20:58 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:58 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:58 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:58 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:58 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 40
+2026.05.09 17:20:58 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:20:58 INFO  QDox parse error in file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java (full report at: "/home/martin/Documents/aws-v4/dev/gamelift_banckend/.metals/.reports/metals-full/2026-05-09/r_qdox-error_17-20-56-735.md")
+May 09, 2026 5:20:58 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 43
+May 09, 2026 5:20:58 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 45
+2026.05.09 17:20:58 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:58 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 42
+2026.05.09 17:20:58 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:58 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+May 09, 2026 5:20:59 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 47
+May 09, 2026 5:20:59 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 48
+2026.05.09 17:20:58 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:20:59 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 49
+May 09, 2026 5:20:59 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 52
+2026.05.09 17:20:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:20:59 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:20:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:00 INFO  QDox parse error in file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java (full report at: "/home/martin/Documents/aws-v4/dev/gamelift_banckend/.metals/.reports/metals-full/2026-05-09/r_qdox-error_17-20-56-735.md")
+May 09, 2026 5:21:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 51
+May 09, 2026 5:21:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 54
+2026.05.09 17:20:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:21:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 57
+2026.05.09 17:20:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:00 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+May 09, 2026 5:21:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 55
+2026.05.09 17:20:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:21:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 56
+May 09, 2026 5:21:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 58
+2026.05.09 17:21:00 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:00 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:00 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:00 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:21:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 64
+May 09, 2026 5:21:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 62
+2026.05.09 17:21:00 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:21:01 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 59
+2026.05.09 17:21:01 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:03 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:03 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:03 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:04 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:04 INFO  QDox parse error in file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java (full report at: "/home/martin/Documents/aws-v4/dev/gamelift_banckend/.metals/.reports/metals-full/2026-05-09/r_qdox-error_17-20-56-735.md")
+2026.05.09 17:21:04 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:07 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+2026.05.09 17:21:20 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:20 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:21 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:22 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:23 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:23 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:25 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:25 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:25 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:26 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:26 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:26 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:26 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:27 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:27 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:27 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:27 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:28 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:21:28 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 105
+2026.05.09 17:21:28 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:28 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:28 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:29 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:21:29 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 112
+2026.05.09 17:21:28 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:29 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:29 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:30 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:29 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:21:30 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 118
+2026.05.09 17:21:30 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:29 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:31 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:31 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:33 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:34 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:34 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:35 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:35 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:36 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:36 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:36 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:37 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:36 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:38 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:38 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:37 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+2026.05.09 17:21:40 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:40 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:40 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:41 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:40 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:41 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+2026.05.09 17:21:41 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:41 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:41 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:42 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:21:41 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:21:42 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+2026.05.09 17:26:32 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:26:32 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:26:32 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:26:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:27:00 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 165
+2026.05.09 17:26:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:27:01 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 166
+2026.05.09 17:27:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:01 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:27:01 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+2026.05.09 17:27:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:03 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:03 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:27:12 PM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+INFO: Unsupported notification method: $/setTrace
+2026.05.09 17:27:13 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:26 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:26 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:26 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:26 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:27:27 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:27:27 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:01 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:02 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:02 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:02 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:02 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:02 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:03 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:03 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:28:04 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:04 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:28:05 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 201
+2026.05.09 17:28:05 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:28:05 INFO  QDox parse error in file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java (full report at: "/home/martin/Documents/aws-v4/dev/gamelift_banckend/.metals/.reports/metals-full/2026-05-09/r_qdox-error_17-20-56-735.md")
+2026.05.09 17:28:05 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:06 WARN  Running javac-semanticdb failed for file:///home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Output:
+
+2026.05.09 17:28:15 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:28:15 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 211
+2026.05.09 17:28:15 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:15 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:16 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:16 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:28:16 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:17 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:17 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:18 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:18 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:18 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:19 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:20 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:28:20 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:23 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:23 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:24 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:25 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:28:25 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:28:59 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:29:16 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:29:16 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+May 09, 2026 5:29:17 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 245
+2026.05.09 17:29:17 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:29:17 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:29:17 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:29:18 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:29:20 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.05.09 17:29:20 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.05.09 17:36:36 INFO  Shutting down server
+2026.05.09 17:36:36 INFO  Memory monitor stopped
+2026.05.09 17:36:36 INFO  shutting down Metals
+2026.05.09 17:36:36 INFO  Exiting server

@@ -48,7 +48,7 @@ type DocResponse struct {
 // =====================
 
 type DocsService struct {
-	basePath string // e.g. "./docs"
+basePath string // e.g. "./docs"
 }
 
 func NewDocsService(basePath string) *DocsService {

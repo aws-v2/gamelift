@@ -1,113 +1,339 @@
 package application
 
 import (
-	"fmt"
-	"sync"
-
+	// "backend/internal/application"
 	"backend/internal/domain"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
-type GameServiceImpl struct {
-	games []domain.Game
-	mu    sync.Mutex
-	nextID int
+// ── Interface ─────────────────────────────────────────────────────────────────
+
+type GameService interface {
+	ListGames(ctx context.Context) ([]domain.Game, error)
+	GetGame(ctx context.Context, id string) (*domain.Game, error)
+	CreateGame(ctx context.Context, req CreateGameRequest) (*domain.Game, error)
+	UpdateGame(ctx context.Context, id string, req UpdateGameRequest) (*domain.Game, error)
+	DeleteGame(ctx context.Context, id string) error
+
+	GetManifest(ctx context.Context, id string) (map[string]any, error)
+	GetDownloadURL(ctx context.Context, id string) (string, error)
+	InitUpload(ctx context.Context, req InitUploadRequest) (*InitUploadResult, error)
+
+	PlayGame(ctx context.Context, req PlayGameRequest) (*PlayGameResult, error)
+	CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error)
+	GetSessionStatus(ctx context.Context, gameID string) (*domain.GameSession, error)
+	StreamSessionEvents(ctx context.Context, gameID string) (chan domain.GameSessionEvent, error)
+
 }
 
-func NewGameService() *GameServiceImpl {
-	return &GameServiceImpl{
-		games: []domain.Game{
-			{
-				ID:             1,
-				Name:           "Demo Game",
-				FolderLocation: "media",
-				VMID:           "test-vm-1",
-				ARN:            "arn:serw:game:eu-north-1:system:game/1",
-				Status:         domain.GameStatusActive,
-			},
-		},
-		nextID: 2,
-	}
+// ── Request / Response types ──────────────────────────────────────────────────
+
+type CreateGameRequest struct {
+	Name           string `json:"name"    binding:"required"`
+	FolderLocation string `json:"folder_location"`
+	UserID         string `json:"user_id"`
+	Manifest       Manifest `json:"manifest" binding:"required"`
 }
 
-func (s *GameServiceImpl) ListGames() ([]domain.Game, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	var activeGames []domain.Game
-	for _, g := range s.games {
-		if g.Status == domain.GameStatusActive {
-			activeGames = append(activeGames, g)
-		}
-	}
-	return activeGames, nil
+type UpdateGameRequest struct {
+	Name   string           `json:"name"`
+	Status domain.GameStatus `json:"status"`
 }
 
-func (s *GameServiceImpl) GetGame(id int) (*domain.Game, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
-	for _, g := range s.games {
-		if g.ID == id {
-			return &g, nil
-		}
-	}
-	return nil, fmt.Errorf("game %d not found", id)
+type Manifest struct {
+	Name string `json:"name" binding:"required"`
+	PlayerNode string `json:"player_node" binding:"required"`
+	SyncNodes []domain.SyncNode `json:"sync_nodes"`
+	Version string `json:"version"`	
+	HeadlessBin string `json:"headless_bin"`
+	MainScene string `json:"main_scene"`
 }
 
-func (s *GameServiceImpl) RegisterGame(name, vmID, accountID string) (*domain.Game, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	id := s.nextID
-	s.nextID++
-
-	arn := fmt.Sprintf("arn:serw:game:eu-north-1:%s:game/%d", accountID, id)
-	folderLocation := fmt.Sprintf("./uploads/games/%d", id)
-
-	g := domain.Game{
-		ID:             id,
-		Name:           name,
-		FolderLocation: folderLocation,
-		VMID:           vmID,
-		ARN:            arn,
-		Status:         domain.GameStatusActive,
-	}
-
-	s.games = append(s.games, g)
-	return &g, nil
+type InitUploadRequest struct {
+	UserID   string   `json:"game_id"  binding:"required"`
+	Name string `json:"game_name" binding:"required"`
+	Manifest Manifest `json:"manifest" binding:"required"`
+	Version string `json:"vm_id" binding:"required"`
 }
 
-func (s *GameServiceImpl) InitUpload(name, vmID, accountID string) (*domain.Game, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	id := s.nextID
-	s.nextID++
-
-	arn := fmt.Sprintf("arn:serw:game:eu-north-1:%s:game/%d", accountID, id)
-
-	g := domain.Game{
-		ID:     id,
-		Name:   name,
-		VMID:   vmID,
-		ARN:    arn,
-		Status: domain.GameStatusPending,
-	}
-
-	s.games = append(s.games, g)
-	return &g, nil
+type InitUploadResult struct {
+	UploadURL string `json:"upload_url"`
+	Key       string `json:"key"`
 }
 
-func (s *GameServiceImpl) UpdateGameStatus(id int, status domain.GameStatus, storageARN string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+type PlayGameRequest struct {
+	GameID string   `json:"game_id" binding:"required"`
+	UserID string `json:"user_id" binding:"required"`
+}
 
-	for i, g := range s.games {
-		if g.ID == id {
-			s.games[i].Status = status
-			s.games[i].StorageARN = storageARN
-			return nil
-		}
+type PlayGameResult struct {
+	SessionID  string   `json:"session_id"`
+	StreamURL  string `json:"stream_url"`
+	Status     string `json:"status"`
+}
+
+type CreateSessionRequest struct {
+	UserID string `json:"user_id" binding:"required"`
+	GameId string `json:"game_id" binding:"required"`
+}
+
+// ── Implementation ────────────────────────────────────────────────────────────
+
+type gameService struct {
+	repo           repository.GameRepository
+	log            *zap.SugaredLogger
+	natsClient     *messaging.NatsClient
+	sessionService *Service
+	sseRegistry    *SSERegistry
+}
+
+func NewGameService(repo repository.GameRepository, log *zap.SugaredLogger, natsClient *messaging.NatsClient, sessionService *Service, sseRegistry *SSERegistry) GameService {
+	return &gameService{repo: repo, log: log, natsClient: natsClient, sessionService: sessionService, sseRegistry: sseRegistry}
+}
+
+func (s *gameService) ListGames(ctx context.Context) ([]domain.Game, error) {
+	return s.repo.ListGames(ctx)
+}
+
+func (s *gameService) GetGame(ctx context.Context, id string) (*domain.Game, error) {
+	return s.repo.GetGame(ctx, id)
+}
+
+
+func (s *gameService) StreamSessionEvents(ctx context.Context, gameID string) (chan domain.GameSessionEvent, error) {
+	return s.sseRegistry.Register(gameID), nil
+}
+
+
+func (s *gameService) CreateGame(ctx context.Context, req CreateGameRequest) (*domain.Game, error) {
+	manifestID := uuid.New().String()
+	game := &domain.Game{
+		Name:           req.Name,
+		FolderLocation: req.FolderLocation,
+		UserID:         req.UserID,
+		Status:         domain.GameStatusPending,
+		Manifest:       manifestID,
 	}
-	return fmt.Errorf("game %d not found", id)
+	if err := s.repo.CreateGame(ctx, game); err != nil {
+		return nil, fmt.Errorf("create game: %w", err)
+	}
+	manifest := domain.GameManifest{
+		ID: manifestID,
+		Name: req.Name,
+		PlayerNode: req.Manifest.PlayerNode,
+		SyncNodes: req.Manifest.SyncNodes,
+		Version: req.Manifest.Version,
+
+		HeadlessBin: req.Manifest.HeadlessBin,
+		MainScene: req.Manifest.MainScene,
+	}
+	if err := s.repo.SetManifest(ctx, game.ID, manifest); err != nil {
+		return nil, fmt.Errorf("set manifest: %w", err)
+	}
+	if err := s.repo.SetManifest(ctx, game.ID, manifest); err != nil {
+		return nil, fmt.Errorf("set manifest: %w", err)
+	}
+	return game, nil
+}
+
+func (s *gameService) UpdateGame(ctx context.Context, id string, req UpdateGameRequest) (*domain.Game, error) {
+	game, err := s.repo.GetGame(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if req.Name != "" {
+		game.Name = req.Name
+	}
+	if req.Status != "" {
+		game.Status = req.Status
+	}
+	if err := s.repo.UpdateGame(ctx, game); err != nil {
+		return nil, fmt.Errorf("update game: %w", err)
+	}
+	return game, nil
+}
+
+func (s *gameService) DeleteGame(ctx context.Context, id string) error {
+	return s.repo.DeleteGame(ctx, id)
+}
+
+func (s *gameService) GetManifest(ctx context.Context, id string) (map[string]any, error) {
+	return s.repo.GetManifest(ctx, id)
+}
+
+func (s *gameService) GetDownloadURL(ctx context.Context, id string) (string, error) {
+	game, err := s.repo.GetGame(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	// Build the download URL from the game folder location
+	return fmt.Sprintf("/api/v1/gamelift/games/static/%s/package.zip", game.FolderLocation), nil
+}
+type createPresignedURLRequestPayload struct {
+	GameID    string    `json:"game_id"`
+	UserID    string `json:"user_id"`
+	ARN       string `json:"arn"`
+	Extension string `json:"extension"`
+}
+func (s *gameService) InitUpload(ctx context.Context, req InitUploadRequest) (*InitUploadResult, error) {
+	// 1. Check if game name already exists
+	s.log.Info(">>>>>>>>>>>>>>>d>>>>>>>>>>>>>>>>>>>>>")
+	// userIDVal, exists := ctx.Value(string(domain.UserIDKey)).(string)
+	// if !exists {
+	// 	return nil, fmt.Errorf("user not found in context")
+	// }
+	s.log.Info(">>>>>>>>>>>>>>>a>>>>>>>>>>>>>>>>>>>>>")
+
+	existing, err := s.repo.GetGameByName(ctx, req.Name)
+	if err == nil && existing != nil {
+		s.log.Info("game with name %q already exists", req.Name)
+		return nil, fmt.Errorf("game with name %q already exists", req.Name)
+	}
+
+	s.log.Info(">>>>>>>>>>>>>g>>>>>>>>>>>>>>>>>>>>>>>")
+
+	// 2. Create the game record
+	game := &domain.Game{
+		ID: uuid.New().String(),
+		Name:          req.Name,
+		UserID:        req.UserID,
+		Status:        domain.GameStatusPending,
+		StreamingMode: domain.StreamingModeState,
+	}
+	if err := s.repo.CreateGame(ctx, game); err != nil {
+		return nil, fmt.Errorf("failed to create game record: %w", err)
+	}
+	s.log.Info(">>>>>>>>>>>>>>>k>>>>>>>>>>>>>>>>>>>>>")
+
+	// 3. Generate ARN and folder location now that we have an ID
+	// game.ARN            = fmt.Sprintf("arn:serw:game:eu-north-1:%s:game/%s", "userIDVal", game.ID)
+
+// correct - matches actual stored filename
+game.ARN = fmt.Sprintf("arn:aws:s3:::gameliftgames-default/uploads/games/%s/gamex86_64", game.ID)
+	
+	
+	game.FolderLocation = fmt.Sprintf("./uploads/games/%s", game.ID)
+	if err := s.repo.UpdateGame(ctx, game); err != nil {
+		return nil, fmt.Errorf("failed to update game ARN: %w", err)
+	}
+
+	// 4. Request presigned upload URL from S3 service via NATS
+	payload, err := json.Marshal(createPresignedURLRequestPayload{
+		GameID:    game.ID,
+		UserID:    game.UserID,
+		ARN:       game.ARN,
+		Extension: "x86_64",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed  marshal presign payload: %w", err)
+	}
+
+	reply, err := s.natsClient.Request(
+		messaging.GetS3GameInitUploadSubject(),
+		payload,
+		5*time.Second,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("presign request failed: %w", err)
+	}
+
+var presignResp struct {
+    UploadURL string `json:"upload_url"`
+}
+if err := json.Unmarshal(reply.Data, &presignResp); err != nil {
+    return nil, fmt.Errorf("failed to parse presign response: %w", err)
+}
+
+return &InitUploadResult{
+    UploadURL: presignResp.UploadURL,
+    Key:       fmt.Sprintf("games/%s/package.%s", game.ID, "x86_64"),
+}, nil
+}
+
+
+
+
+
+
+
+func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest) (*PlayGameResult, error) {
+	game, err := s.repo.GetGame(ctx, req.GameID)
+	if err != nil {
+		return nil, err
+	}
+	session := &domain.GameSession{
+		ID: uuid.New().String(),
+		GameID: game.ID,
+		UserID: req.UserID,
+		Status: "starting",
+		NodeID: "lksjdaksjdak",
+		
+	}
+	initService :=domain.CreateSessionRequest{
+		GameID: game.ID,
+		UserID: req.UserID,
+		GameImage: "",
+	}
+	s.sessionService.CreateSession(ctx, initService)
+	if err := s.repo.CreateSession(ctx, session); err != nil {
+		return nil, fmt.Errorf("play game: create session: %w", err)
+	}
+	return &PlayGameResult{
+		SessionID: session.ID,
+		StreamURL: fmt.Sprintf("/api/v1/ws?session=%s", session.ID),
+		Status:    session.Status,
+	}, nil
+}
+
+
+
+
+
+
+
+
+
+func (s *gameService) CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error) {
+	session := &domain.GameSession{
+		ID: uuid.New().String(),
+		GameID: gameID,
+		UserID: req.UserID,
+		Status: "pending",
+	}
+		initService :=domain.CreateSessionRequest{
+		GameID: gameID,
+		UserID: req.UserID,
+		GameImage: "",
+	}
+	ses ,err:=s.sessionService.CreateSession(ctx, initService)
+	if err != nil {
+		return nil, fmt.Errorf("create session: %w", err)
+	}
+
+
+	session.AgentWSURL=ses.AgentWSURL
+	session.Token=ses.Token
+	session.NodeID=ses.NodeID
+session.ID=ses.ID
+	
+	// if err := s.repo.CreateSession(ctx, session); err != nil {
+	// 	return nil, fmt.Errorf("create session: %w", err)
+	// }
+
+	fmt.Printf("session check here -*-> %s", session.ID)
+
+	return session, nil
+}
+
+func (s *gameService) GetSessionStatus(ctx context.Context, gameID string) (*domain.GameSession, error) {
+	return s.repo.GetSession(ctx, gameID)
 }

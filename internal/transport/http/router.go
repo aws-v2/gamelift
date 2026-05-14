@@ -3,10 +3,13 @@ package http
 import (
 	"backend/internal/application"
 	"backend/internal/config"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
 	"backend/internal/infrastructure/storage"
-	"backend/internal/interfaces"
-	"backend/internal/messaging"
 	"backend/internal/transport/http/handlers"
+	"backend/internal/transport/middleware"
+
+	// "backend/internal/transport/middleware"
 	"backend/internal/transport/websocket"
 
 	"github.com/gin-gonic/gin"
@@ -14,72 +17,80 @@ import (
 )
 
 func NewRouter(
-	authSvc interfaces.AuthService, 
-	gameSvc interfaces.GameRepository, 
-	hub *websocket.Hub, 
-	natsClient *messaging.NatsClient, 
-	provisioningSvc interfaces.ProvisioningService,
+	authSvc repository.AuthService,
+	gameHandler *handlers.GameHandler,
+	hub *websocket.Hub,
+	natsClient *messaging.NatsClient,
+	provisioningSvc *application.ProvisioningService,
 	storage *storage.MinIOAdapter,
 	logger *zap.SugaredLogger,
 	cfg *config.Config,
 ) *gin.Engine {
 	r := gin.Default()
 
-	// CORS is handled by the API Gateway. 
-	// Disabling local CORS to prevent duplicate Access-Control-Allow-Origin headers.
-	/*
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:5173"}
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
-	config.AllowCredentials = true
-	r.Use(cors.New(config))
-	*/
-
 	authHandler := handlers.NewAuthHandler(authSvc, logger)
-	gameHandler := handlers.NewGameHandler(gameSvc, natsClient, provisioningSvc, storage, logger, cfg.NatsPrefix)
 	wsHandler := websocket.NewWebSocketHandler(hub)
 	webrtcHandler := handlers.NewWebRTCSignalingHandler(logger)
 	docsSvc := application.NewDocsService(cfg.DocsPath)
 	docsHandler := handlers.NewDocsHandler(docsSvc)
-	// API Group with prefix
-	api := r.Group("/api/v1/gamelift")
-	{
-		api.POST("/login", authHandler.Login)
-		api.GET("/games", gameHandler.ListGames)
-		api.GET("/games/:id/manifest", gameHandler.GetManifest)
-		api.GET("/games/:id/package", gameHandler.DownloadPackage)
 
-		// Protected routes within the group
-		protected := api.Group("/")
+	base := r.Group("/api/v1/gamelift")
+	base.Use(middleware.AuthMiddleware())
+
+	// ── 1. Docs ───────────────────────────────────────────────────────────────
+
+	{
+		sse := base.Group("/fleet")
+
+		sse.GET("/instances/:instanceId/events", gameHandler.StreamSessionEvents)
+
+	}
+	{
+		pub := base.Group("/docs")
+		pub.GET("", docsHandler.GetPublicManifest)
+		pub.GET("/:slug", docsHandler.GetPublicDoc)
+
+		priv := r.Group("/api/v1/internal/docs")
+		priv.GET("", docsHandler.GetInternalManifest)
+		priv.GET("/:slug", docsHandler.GetInternalDoc)
+	}
+
+	// ── 2. WebSockets + WebRTC ────────────────────────────────────────────────
+	{
+		r.GET("/api/v1/ws", wsHandler.Handle)
+		r.GET("/ws", wsHandler.Handle)
+		r.GET("/api/v1/webrtc/signaling", webrtcHandler.HandleSignaling)
+	}
+
+	// ── 3. Sessions ───────────────────────────────────────────────────────────
+	{
+
+		sessions := base.Group("/games/:id/session")
+		sessions.GET("/events", gameHandler.StreamSessionEvents)
+		sessions.POST("", gameHandler.CreateSession)
+		sessions.GET("/status", gameHandler.GetSessionStatus)
+
+		base.POST("/games/play", gameHandler.PlayGame)
+	}
+
+	// ── 4. Games ──────────────────────────────────────────────────────────────
+	{
+		base.POST("/login", authHandler.Login)
+
+		games := base.Group("/games")
+		games.GET("", gameHandler.ListGames)
+		games.GET("/:id", gameHandler.GetGame)
+		games.GET("/:id/manifest", gameHandler.GetManifest)
+		games.GET("/:id/package", gameHandler.DownloadPackage)
+		games.Static("/static", "./uploads/games")
+
+		protected := games.Group("/")
 		// protected.Use(AuthMiddleware(authSvc))
-		{
-			protected.POST("/games/init-upload", gameHandler.InitUpload)
-			protected.POST("/games/play", gameHandler.PlayGame)
-		}
-
-		// Static assets within the group
-		api.Static("/game_static", "./uploads/games")
+		protected.POST("/init-upload", gameHandler.InitUpload)
+		protected.POST("", gameHandler.CreateGame)
+		protected.PUT("/:id", gameHandler.UpdateGame)
+		protected.DELETE("/:id", gameHandler.DeleteGame)
 	}
-
-	docs := r.Group("/api/v1/gamelift/docs")
-	{
-		docs.GET("", docsHandler.GetPublicManifest)
-		docs.GET("/:slug", docsHandler.GetPublicDoc)
-	}
-
-	internal := r.Group("/api/v1/internal/docs")
-	{
-		internal.GET("", docsHandler.GetInternalManifest)
-		internal.GET("/:slug", docsHandler.GetInternalDoc)
-	}	
-
-	// Public WebSocket for state-streaming
-	r.GET("/api/v1/ws", wsHandler.Handle) // Direct match for Gateway requests
-	r.GET("/ws", wsHandler.Handle)        // Legacy / fallback match
-
-	// WebRTC Signaling
-	r.GET("/api/v1/webrtc/signaling", webrtcHandler.HandleSignaling)
 
 	return r
 }

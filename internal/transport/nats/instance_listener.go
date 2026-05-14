@@ -1,11 +1,12 @@
 package nats
 
 import (
+	"context"
 	"encoding/json"
 
 	"backend/internal/domain"
-	"backend/internal/interfaces"
-	"backend/internal/messaging"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
 	"backend/internal/transport/websocket"
 
 	"github.com/nats-io/nats.go"
@@ -13,16 +14,16 @@ import (
 )
 
 type InstanceLifecycleListener struct {
-	gameRepo   interfaces.GameRepository
-	natsClient interfaces.MessagingClient
+	gameRepo   repository.GameRepository
+	natsClient repository.MessagingClient
 	hub        *websocket.Hub
 	appEnv     string
 	logger     *zap.SugaredLogger
 }
 
 func NewInstanceLifecycleListener(
-	gameRepo interfaces.GameRepository,
-	natsClient interfaces.MessagingClient,
+	gameRepo repository.GameRepository,
+	natsClient repository.MessagingClient,
 	hub *websocket.Hub,
 	appEnv string,
 	logger *zap.SugaredLogger,
@@ -56,8 +57,8 @@ func (l *InstanceLifecycleListener) Start() {
 		)
 
 		// 1. Find the Game by VMID (instance_id)
-		var gameID int
-		game, err := l.gameRepo.GetGameByVMID(event.InstanceID)
+		var gameID string
+		game, err := l.gameRepo.GetGameByVMID(context.Background(), event.InstanceID)
 		if err == nil {
 			gameID = game.ID
 		}
@@ -79,10 +80,10 @@ func (l *InstanceLifecycleListener) Start() {
 		// 3. Update Database Status if completed or failed
 		if event.Stage == "COMPLETED" || event.EventType == "INSTANCE_STARTED" {
 			l.logger.Infow("Lifecycle completed", "instance_id", event.InstanceID, "status", "Active")
-			l.gameRepo.UpdateStatusByVMID(event.InstanceID, domain.GameStatusActive)
+			l.gameRepo.UpdateStatusByVMID(context.Background(), event.InstanceID, domain.GameStatusActive)
 		} else if event.Stage == "FAILED" {
 			l.logger.Errorw("Lifecycle failed", "instance_id", event.InstanceID)
-			l.gameRepo.UpdateStatusByVMID(event.InstanceID, "failed")
+			l.gameRepo.UpdateStatusByVMID(context.Background(), event.InstanceID, "failed")
 		}
 	})
 

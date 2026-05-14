@@ -39,8 +39,8 @@ func GetGameStateBroadcastSubject() Subject {
 // GetProvisionGameSubject returns the subject for internal provisioning requests.
 func GetProvisionGameSubject() Subject {
 	return Subject{
-		Service:    "provisioning",
-		Domain:     "game",
+		Service:    "ec2",
+		Domain:     "task",
 		ActionType: "provision",
 	}
 }
@@ -70,5 +70,14 @@ func GetEC2InstanceLifecycleSubject() Subject {
 		Service:    "ec2",
 		Domain:     "instance",
 		ActionType: "lifecycle",
+	}
+}
+
+// GetS3GameInitUploadSubject returns the subject for S3 game init upload events.
+func GetS3GameInitUploadSubject() Subject {
+	return Subject{
+		Service:    "s3",
+		Domain:     "task",
+		ActionType: "task.create_presigned_url",
 	}
 }

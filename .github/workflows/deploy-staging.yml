@@ -52,7 +52,9 @@ jobs:
       with:
         context: .
         push: true
-        tags: qarani/gamelift-backend:staging
+        tags: |
+          qarani/gamelift-backend:staging-${{ github.sha }}
+          qarani/gamelift-backend:staging
 
   staging-deploy:
     needs: staging-build-image
@@ -72,7 +74,7 @@ jobs:
         username: ${{ secrets.STAGING_USERNAME }}
         key: ${{ secrets.STAGING_SSH_KEY }}
         script: |
-          docker pull qarani/gamelift-backend:staging
+          docker pull qarani/gamelift-backend:staging-${{ github.sha }}
           docker stop gamelift-backend || true
           docker rm gamelift-backend || true
           docker run -d --name gamelift-backend --network aws-staging-network \
@@ -103,7 +105,7 @@ jobs:
             -e S3_SECRET_KEY=minio-staging-password \
             -e S3_USE_SSL=false \
             -e SQLITE_PATH=gamelift_fallback.db \
-            qarani/gamelift-backend:staging
+            qarani/gamelift-backend:staging-${{ github.sha }}
 
   staging-open-pr-to-main:
     needs: staging-deploy
