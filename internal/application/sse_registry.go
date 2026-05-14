@@ -73,5 +73,5 @@ func (r *SSERegistry) Unregister(id string, ch chan domain.GameSessionEvent) {
     if len(r.channels[id]) == 0 {
         delete(r.channels, id)
     }
-    log.Printf("[SSERegistry] Unregister — id=%s", id)
+    log.Printf("[SSERegistry] Unregister for — id=%s", id)
 }
