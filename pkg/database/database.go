@@ -1,6 +1,7 @@
 package database
 
 import (
+	"embed"
 	"fmt"
 
 	"gorm.io/driver/postgres"
@@ -12,6 +13,7 @@ import (
 	pg_migrate "github.com/golang-migrate/migrate/v4/database/postgres"
 	sqlite_migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
 type Config struct {
@@ -44,7 +46,7 @@ func ConnectSQLite(path string) (*DB, error) {
 	return &DB{GORM: gdb}, nil
 }
 
-func (db *DB) Migrate(migrationPath string) error {
+func (db *DB) Migrate(source any, migrationPath string) error {
 	sqlDB, err := db.GORM.DB()
 	if err != nil {
 		return err
@@ -67,12 +69,24 @@ func (db *DB) Migrate(migrationPath string) error {
 		return fmt.Errorf("could not create migration driver: %w", err)
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://"+migrationPath,
-		driverName, driver,
-	)
-	if err != nil {
-		return fmt.Errorf("could not create migrate instance: %w", err)
+	var m *migrate.Migrate
+	if fs, ok := source.(embed.FS); ok {
+		d, err := iofs.New(fs, migrationPath)
+		if err != nil {
+			return fmt.Errorf("could not create iofs source: %w", err)
+		}
+		m, err = migrate.NewWithInstance("iofs", d, driverName, driver)
+		if err != nil {
+			return fmt.Errorf("could not create migrate instance: %w", err)
+		}
+	} else {
+		m, err = migrate.NewWithDatabaseInstance(
+			"file://"+migrationPath,
+			driverName, driver,
+		)
+		if err != nil {
+			return fmt.Errorf("could not create migrate instance: %w", err)
+		}
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {

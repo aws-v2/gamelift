@@ -22,6 +22,7 @@ import (
 	"backend/internal/infrastructure/discovery"
 	// "backend/pkg/database"
 	"backend/pkg/logger"
+	"backend/migrations"
 
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
@@ -91,7 +92,7 @@ func main() {
 
 	// ── Migrations ────────────────────────────────────────────────────────────
 	logr.Info("Running database migrations...")
-	if err := db.Migrate("migrations/sql"); err != nil {
+	if err := db.Migrate(migrations.MigrationFS, "sql"); err != nil {
 		logr.Fatalw("Failed to run database migrations", "error", err)
 	}
  
