@@ -2,55 +2,69 @@ package handlers
 
 import (
 	"backend/internal/application"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
-
 
 type DocsHandler struct {
 	service *application.DocsService
-}
-func NewDocsHandler(service *application.DocsService) *DocsHandler {
-	return &DocsHandler{service: service}
-}
-func (h *DocsHandler) GetPublicManifest(c *gin.Context) {
-	data, err := h.service.GetManifest(false)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, gin.H{"data": data})
+	log     *zap.SugaredLogger
 }
 
-func (h *DocsHandler) GetInternalManifest(c *gin.Context) {
-	data, err := h.service.GetManifest(true)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, gin.H{"data": data})
+func NewDocsHandler(service *application.DocsService, log *zap.SugaredLogger) *DocsHandler {
+	return &DocsHandler{service: service, log: log}
 }
 
-func (h *DocsHandler) GetPublicDoc(c *gin.Context) {
+func (h *DocsHandler) GetManifests(c *gin.Context) {
+	role, _ := c.Get("userRole")
+	roleStr, _ := role.(string)
+
+	h.log.Infow("HANDLER_GET_MANIFESTS", "role", roleStr)
+
+	data, err := h.service.GetManifestsForRole(roleStr)
+	if err != nil {
+		h.log.Errorw("HANDLER_GET_MANIFESTS_FAILED", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.log.Infow("HANDLER_GET_MANIFESTS_SUCCESS", "role", roleStr)
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+func (h *DocsHandler) GetDoc(c *gin.Context) {
 	slug := c.Param("slug")
+	role, _ := c.Get("userRole")
+	roleStr, _ := role.(string)
 
-	doc, err := h.service.GetDoc(slug, false)
+	h.log.Infow("HANDLER_GET_DOC", "slug", slug, "role", roleStr)
+
+	doc, err := h.service.GetDocForRole(slug, roleStr)
 	if err != nil {
-		c.JSON(404, gin.H{"error": "not found"})
+		h.log.Warnw("HANDLER_GET_DOC_NOT_FOUND", "slug", slug, "role", roleStr, "error", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found or access denied"})
 		return
 	}
 
-	c.JSON(200, gin.H{"data": doc})
+	h.log.Infow("HANDLER_GET_DOC_SUCCESS", "slug", slug, "role", roleStr)
+	c.JSON(http.StatusOK, gin.H{"data": doc})
 }
+
 
 func (h *DocsHandler) GetInternalDoc(c *gin.Context) {
 	slug := c.Param("slug")
 
+	h.log.Infow("HANDLER_GET_INTERNAL_DOC", "slug", slug)
+
 	doc, err := h.service.GetDoc(slug, true)
 	if err != nil {
-		c.JSON(404, gin.H{"error": "not found"})
+		h.log.Warnw("HANDLER_GET_INTERNAL_DOC_NOT_FOUND", "slug", slug, "error", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
 
-	c.JSON(200, gin.H{"data": doc})
+	h.log.Infow("HANDLER_GET_INTERNAL_DOC_SUCCESS", "slug", slug)
+	c.JSON(http.StatusOK, gin.H{"data": doc})
 }

@@ -81,3 +81,13 @@ func GetS3GameInitUploadSubject() Subject {
 		ActionType: "task.create_presigned_url",
 	}
 }
+
+
+// GetS3GameInitUploadSubject returns the subject for S3 game init upload events.
+func GetS3GameInitDownloadSubject() Subject {
+	return Subject{
+		Service:    "s3",
+		Domain:     "task",
+		ActionType: "task.create_presign_download_url",
+	}
+}

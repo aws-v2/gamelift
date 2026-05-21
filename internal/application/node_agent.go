@@ -31,7 +31,16 @@ type NodeAgent struct {
 	logger     *zap.SugaredLogger
 }
 
-func NewNodeAgent(nodeID string, gameRepo repository.GameRepository, natsClient repository.MessagingClient, storage *storage.MinIOAdapter, debug bool, godotPath string, appEnv string, logger *zap.SugaredLogger) *NodeAgent {
+func NewNodeAgent(
+	nodeID string,
+	gameRepo repository.GameRepository,
+	natsClient repository.MessagingClient,
+	storage *storage.MinIOAdapter,
+	debug bool,
+	godotPath string,
+	appEnv string,
+	logger *zap.SugaredLogger,
+) *NodeAgent {
 	return &NodeAgent{
 		NodeID:     nodeID,
 		gameRepo:   gameRepo,
@@ -45,49 +54,61 @@ func NewNodeAgent(nodeID string, gameRepo repository.GameRepository, natsClient 
 }
 
 func (a *NodeAgent) Start() {
-	fmt.Println("Node Agent started")
+	a.logger.Infow("NODE_AGENT_STARTING", "node_id", a.NodeID, "debug", a.debug, "env", a.appEnv)
 
-	// ================================
-	// 1. LISTEN FOR PROVISION REQUESTS
-	// ================================
+	// 1. Provision requests
 	provisionSubj := messaging.GetProvisionGameSubject()
+	a.logger.Infow("NODE_AGENT_SUBSCRIBING", "node_id", a.NodeID, "subject", provisionSubj)
 
 	_, err := a.natsClient.Subscribe(provisionSubj, func(msg *nats.Msg) {
 		a.handleProvision(msg)
 	})
 	if err != nil {
-		a.logger.Fatalf("Failed to subscribe to provisioning topic", "error", err)
+		a.logger.Errorw("NODE_AGENT_SUBSCRIBE_FAILED", "node_id", a.NodeID, "subject", provisionSubj, "error", err)
+		return
 	}
+	a.logger.Infow("NODE_AGENT_SUBSCRIBED", "node_id", a.NodeID, "subject", provisionSubj)
 
-	// ======================================
-	// 2. LISTEN FOR FINISHED S3 UPLOAD EVENTS
-	// ======================================
+	// 2. Finished S3 upload events
 	uploadSubj := messaging.GetFinishedS3UploadSubject()
+	a.logger.Infow("NODE_AGENT_SUBSCRIBING", "node_id", a.NodeID, "subject", uploadSubj)
 
 	_, err = a.natsClient.Subscribe(uploadSubj, func(msg *nats.Msg) {
 		a.handleFinishedUpload(msg)
 	})
 	if err != nil {
-		a.logger.Fatalf("Failed to subscribe to finished upload topic", "error", err)
+		a.logger.Errorw("NODE_AGENT_SUBSCRIBE_FAILED", "node_id", a.NodeID, "subject", uploadSubj, "error", err)
+		return
 	}
+	a.logger.Infow("NODE_AGENT_SUBSCRIBED", "node_id", a.NodeID, "subject", uploadSubj)
+
+	a.logger.Infow("NODE_AGENT_STARTED", "node_id", a.NodeID)
 }
 
 func (a *NodeAgent) handleProvision(msg *nats.Msg) {
+	a.logger.Debugw("NODE_AGENT_PROVISION_MESSAGE_RECEIVED", "node_id", a.NodeID, "bytes", len(msg.Data))
+
 	var payload domain.ProvisionGameRequest
-
 	if err := json.Unmarshal(msg.Data, &payload); err != nil {
-		a.logger.Errorw("Failed to unmarshal provisioning request", "error", err)
+		a.logger.Errorw("NODE_AGENT_PROVISION_UNMARSHAL_FAILED", "node_id", a.NodeID, "bytes", len(msg.Data), "error", err)
 		return
 	}
 
-	// Only handle requests for this node
 	if payload.TargetNode != a.NodeID {
+		a.logger.Debugw("NODE_AGENT_PROVISION_SKIPPED",
+			"node_id", a.NodeID,
+			"target_node", payload.TargetNode,
+			"game_id", payload.GameID,
+		)
 		return
 	}
 
-	a.logger.Infow("Provisioning request received",
+	a.logger.Infow("NODE_AGENT_PROVISION_ACCEPTED",
 		"node_id", a.NodeID,
 		"game_id", payload.GameID,
+		"storage_arn", payload.StorageARN,
+		"streaming_mode", payload.StreamingMode,
+		"debug", a.debug,
 	)
 
 	if a.debug {
@@ -98,21 +119,24 @@ func (a *NodeAgent) handleProvision(msg *nats.Msg) {
 }
 
 func (a *NodeAgent) handleFinishedUpload(msg *nats.Msg) {
+	a.logger.Debugw("NODE_AGENT_UPLOAD_MESSAGE_RECEIVED", "node_id", a.NodeID, "bytes", len(msg.Data))
+
 	var payload struct {
 		GameID     int    `json:"game_id"`
 		StorageARN string `json:"storage_arn"`
 	}
 
 	if err := json.Unmarshal(msg.Data, &payload); err != nil {
-		a.logger.Errorw("Failed to unmarshal finished upload event", "error", err)
+		a.logger.Errorw("NODE_AGENT_UPLOAD_UNMARSHAL_FAILED", "node_id", a.NodeID, "error", err)
 		return
 	}
 
-	a.logger.Infow("S3 upload completed, triggering provisioning",
+	a.logger.Infow("NODE_AGENT_UPLOAD_COMPLETED",
+		"node_id", a.NodeID,
 		"game_id", payload.GameID,
+		"storage_arn", payload.StorageARN,
 	)
 
-	// Build provisioning request
 	provision := domain.ProvisionGameRequest{
 		GameID:        payload.GameID,
 		StorageARN:    payload.StorageARN,
@@ -120,58 +144,85 @@ func (a *NodeAgent) handleFinishedUpload(msg *nats.Msg) {
 		StreamingMode: "default",
 	}
 
-	// Reuse same flow
-	data, _ := json.Marshal(provision)
+	data, err := json.Marshal(provision)
+	if err != nil {
+		a.logger.Errorw("NODE_AGENT_UPLOAD_MARSHAL_FAILED", "node_id", a.NodeID, "game_id", payload.GameID, "error", err)
+		return
+	}
 
-	a.handleProvision(&nats.Msg{
-		Data: data,
-	})
+	a.logger.Infow("NODE_AGENT_UPLOAD_FORWARDING_TO_PROVISION", "node_id", a.NodeID, "game_id", payload.GameID)
+	a.handleProvision(&nats.Msg{Data: data})
 }
-func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode domain.StreamingMode) {
-	a.logger.Infow("Starting debug local execution", "node_id", a.NodeID, "game_id", gameID)
 
-	// 1. Prepare Paths
+func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode domain.StreamingMode) {
+	a.logger.Infow("NODE_AGENT_DEBUG_INIT_STARTING", "node_id", a.NodeID, "game_id", gameID, "mode", mode)
+
 	tempDir := filepath.Join("/tmp", fmt.Sprintf("game_%d", gameID))
 	tempZip := filepath.Join("/tmp", fmt.Sprintf("game_%d.zip", gameID))
+
 	os.RemoveAll(tempDir)
-	os.MkdirAll(tempDir, os.ModePerm)
+	if err := os.MkdirAll(tempDir, os.ModePerm); err != nil {
+		a.logger.Errorw("NODE_AGENT_DEBUG_MKDIR_FAILED", "node_id", a.NodeID, "game_id", gameID, "path", tempDir, "error", err)
+		return
+	}
 	defer os.Remove(tempZip)
 
-	// 2. Parse ARN: arn:aws:s3:::bucket/key
+	// Parse ARN → bucket + key
 	arnParts := strings.Split(storageARN, ":::")
 	if len(arnParts) < 2 {
-		a.logger.Errorw("Invalid StorageARN", "arn", storageARN)
+		a.logger.Errorw("NODE_AGENT_DEBUG_INVALID_ARN", "node_id", a.NodeID, "game_id", gameID, "arn", storageARN)
 		return
 	}
 	pathParts := strings.SplitN(arnParts[1], "/", 2)
+	if len(pathParts) < 2 {
+		a.logger.Errorw("NODE_AGENT_DEBUG_ARN_PARSE_FAILED", "node_id", a.NodeID, "game_id", gameID, "arn", storageARN)
+		return
+	}
 	bucket, key := pathParts[0], pathParts[1]
 
-	// 3. Download from MinIO
-	a.logger.Debugw("Downloading game files", "node_id", a.NodeID, "bucket", bucket, "key", key)
+	a.logger.Infow("NODE_AGENT_DEBUG_DOWNLOADING",
+		"node_id", a.NodeID,
+		"game_id", gameID,
+		"bucket", bucket,
+		"key", key,
+		"dest", tempZip,
+	)
+
 	if err := a.storage.DownloadFile(context.Background(), bucket, key, tempZip); err != nil {
-		a.logger.Errorw("Download failed", "node_id", a.NodeID, "error", err)
+		a.logger.Errorw("NODE_AGENT_DEBUG_DOWNLOAD_FAILED", "node_id", a.NodeID, "game_id", gameID, "bucket", bucket, "key", key, "error", err)
 		return
 	}
 
-	// 4. Unzip
-	unzipper := NewValidationService()
+	a.logger.Infow("NODE_AGENT_DEBUG_DOWNLOAD_SUCCESS", "node_id", a.NodeID, "game_id", gameID, "dest", tempZip)
+
+	unzipper := NewValidationService(a.logger)
 	if err := unzipper.Unzip(tempZip, tempDir); err != nil {
-		a.logger.Errorw("Unzip failed", "node_id", a.NodeID, "error", err)
+		a.logger.Errorw("NODE_AGENT_DEBUG_UNZIP_FAILED", "node_id", a.NodeID, "game_id", gameID, "error", err)
 		return
 	}
 
-	// 5. Get Manifest to find HeadlessBin
-	game, _ := a.gameRepo.GetGame(context.Background(), strconv.Itoa(gameID))
+	a.logger.Infow("NODE_AGENT_DEBUG_UNZIP_SUCCESS", "node_id", a.NodeID, "game_id", gameID, "dest", tempDir)
+
+	game, err := a.gameRepo.GetGame(context.Background(), strconv.Itoa(gameID), a.logger)
+	if err != nil {
+		a.logger.Errorw("NODE_AGENT_DEBUG_GAME_FETCH_FAILED", "node_id", a.NodeID, "game_id", gameID, "error", err)
+		return
+	}
+
 	var manifest domain.GameManifest
-	json.Unmarshal([]byte(game.Manifest), &manifest)
+	if err := json.Unmarshal([]byte(game.Manifest), &manifest); err != nil {
+		a.logger.Errorw("NODE_AGENT_DEBUG_MANIFEST_PARSE_FAILED", "node_id", a.NodeID, "game_id", gameID, "error", err)
+		return
+	}
 
 	binPath := filepath.Join(tempDir, manifest.HeadlessBin)
-	a.logger.Infow("Launching binary", "node_id", a.NodeID, "bin", binPath)
 
-	// Make binary executable
-	os.Chmod(binPath, 0755)
+	a.logger.Infow("NODE_AGENT_DEBUG_BINARY_RESOLVED", "node_id", a.NodeID, "game_id", gameID, "bin", binPath)
 
-	// 6. Execute!
+	if err := os.Chmod(binPath, 0755); err != nil {
+		a.logger.Warnw("NODE_AGENT_DEBUG_CHMOD_FAILED", "node_id", a.NodeID, "game_id", gameID, "bin", binPath, "error", err)
+	}
+
 	args := []string{"--headless"}
 	if mode == domain.StreamingModeVideo {
 		args = append(args, "--mode=webrtc")
@@ -179,43 +230,79 @@ func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode doma
 		args = append(args, "--mode=state_sync")
 	}
 
-	// Launch in a new terminal for visibility in debug mode
-	terminalCmd := fmt.Sprintf("cd %s && ./%s %s; read -p 'Press enter to close...'", 
+	terminalCmd := fmt.Sprintf("cd %s && ./%s %s; read -p 'Press enter to close...'",
 		tempDir, filepath.Base(binPath), strings.Join(args, " "))
+
+	a.logger.Infow("NODE_AGENT_DEBUG_LAUNCHING",
+		"node_id", a.NodeID,
+		"game_id", gameID,
+		"mode", mode,
+		"args", args,
+	)
+
 	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", terminalCmd)
-	
 	if err := cmd.Start(); err != nil {
-		a.logger.Warnw("Failed to start gnome-terminal", "node_id", a.NodeID, "error", err)
+		a.logger.Warnw("NODE_AGENT_DEBUG_GNOME_TERMINAL_FAILED",
+			"node_id", a.NodeID,
+			"game_id", gameID,
+			"error", err,
+			"fallback", "background exec",
+		)
 		cmd = exec.Command(binPath, args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
-			a.logger.Errorw("Failed to start Godot", "node_id", a.NodeID, "error", err)
+			a.logger.Errorw("NODE_AGENT_DEBUG_FALLBACK_EXEC_FAILED", "node_id", a.NodeID, "game_id", gameID, "bin", binPath, "error", err)
 			return
 		}
 	}
 
-	a.logger.Infow("Process started", "node_id", a.NodeID, "pid", cmd.Process.Pid)
+	a.logger.Infow("NODE_AGENT_DEBUG_PROCESS_STARTED", "node_id", a.NodeID, "game_id", gameID, "pid", cmd.Process.Pid)
 
-	// 7. Update status to Active
-	err := a.gameRepo.UpdateGameStatus(context.Background(), strconv.Itoa(gameID), domain.GameStatusActive)
-	if err != nil {
-		a.logger.Errorw("Failed to finalize status", "node_id", a.NodeID, "error", err)
+	if err := a.gameRepo.UpdateGameStatus(context.Background(), strconv.Itoa(gameID), domain.GameStatusActive, a.logger); err != nil {
+		a.logger.Errorw("NODE_AGENT_DEBUG_STATUS_UPDATE_FAILED", "node_id", a.NodeID, "game_id", gameID, "error", err)
 		return
 	}
 
-	// 8. Notify "Game Ready"
+	a.logger.Infow("NODE_AGENT_DEBUG_STATUS_UPDATED", "node_id", a.NodeID, "game_id", gameID, "new_status", domain.GameStatusActive)
+
 	a.notifyReady(gameID, 8091)
 
-	// Keep process running in background
 	go func() {
-		cmd.Wait()
-		a.logger.Infow("Game process exited", "node_id", a.NodeID, "game_id", gameID)
-		a.gameRepo.UpdateGameStatus(context.Background(), strconv.Itoa(gameID), domain.GameStatusStored)
+		if err := cmd.Wait(); err != nil {
+			a.logger.Warnw("NODE_AGENT_DEBUG_PROCESS_EXITED_ERROR", "node_id", a.NodeID, "game_id", gameID, "error", err)
+		} else {
+			a.logger.Infow("NODE_AGENT_DEBUG_PROCESS_EXITED", "node_id", a.NodeID, "game_id", gameID)
+		}
+
+		if err := a.gameRepo.UpdateGameStatus(context.Background(), strconv.Itoa(gameID), domain.GameStatusStored, a.logger); err != nil {
+			a.logger.Errorw("NODE_AGENT_DEBUG_POST_EXIT_STATUS_UPDATE_FAILED", "node_id", a.NodeID, "game_id", gameID, "error", err)
+		} else {
+			a.logger.Infow("NODE_AGENT_DEBUG_POST_EXIT_STATUS_UPDATED", "node_id", a.NodeID, "game_id", gameID, "new_status", domain.GameStatusStored)
+		}
 	}()
 }
 
+func (a *NodeAgent) initializeGame(gameID int, storageARN string, mode domain.StreamingMode) {
+	a.logger.Infow("NODE_AGENT_INIT_STARTING", "node_id", a.NodeID, "game_id", gameID, "mode", mode, "storage_arn", storageARN)
+
+	time.Sleep(3 * time.Second)
+
+	a.logger.Infow("NODE_AGENT_INIT_COLD_START_DONE", "node_id", a.NodeID, "game_id", gameID)
+
+	if err := a.gameRepo.UpdateGameStatus(context.Background(), strconv.Itoa(gameID), domain.GameStatusActive, a.logger); err != nil {
+		a.logger.Errorw("NODE_AGENT_INIT_STATUS_UPDATE_FAILED", "node_id", a.NodeID, "game_id", gameID, "error", err)
+		return
+	}
+
+	a.logger.Infow("NODE_AGENT_INIT_STATUS_UPDATED", "node_id", a.NodeID, "game_id", gameID, "new_status", domain.GameStatusActive)
+
+	a.notifyReady(gameID, 8091)
+}
+
 func (a *NodeAgent) notifyReady(gameID int, port int) {
+	a.logger.Infow("NODE_AGENT_NOTIFY_READY", "node_id", a.NodeID, "game_id", gameID, "port", port)
+
 	readySubj := messaging.GetGameReadySubject()
 
 	readyPayload := domain.GameReadyEvent{
@@ -224,26 +311,16 @@ func (a *NodeAgent) notifyReady(gameID int, port int) {
 		Port:   port,
 	}
 
-	data, _ := json.Marshal(readyPayload)
-	a.natsClient.Publish(readySubj, data)
-	a.logger.Infow("Game is LIVE and READY", "node_id", a.NodeID, "game_id", gameID)
-}
-
-func (a *NodeAgent) initializeGame(gameID int, storageARN string, mode domain.StreamingMode) {
-	a.logger.Infow("Starting initialization", "node_id", a.NodeID, "game_id", gameID)
-	
-	// Simulation of cold start delay
-	time.Sleep(3 * time.Second) 
-
-	a.logger.Infow("Process started for game", "node_id", a.NodeID, "game_id", gameID, "port", 8091)
-
-	// 4. Update status to Active
-	err := a.gameRepo.UpdateGameStatus(context.Background(), strconv.Itoa(gameID), domain.GameStatusActive)
+	data, err := json.Marshal(readyPayload)
 	if err != nil {
-		a.logger.Errorw("Failed to finalize status", "node_id", a.NodeID, "game_id", gameID, "error", err)
+		a.logger.Errorw("NODE_AGENT_NOTIFY_READY_MARSHAL_FAILED", "node_id", a.NodeID, "game_id", gameID, "error", err)
 		return
 	}
 
-	// 5. Notify "Game Ready"
-	a.notifyReady(gameID, 8091)
+	if err := a.natsClient.Publish(readySubj, data); err != nil {
+		a.logger.Errorw("NODE_AGENT_NOTIFY_READY_PUBLISH_FAILED", "node_id", a.NodeID, "game_id", gameID, "subject", readySubj, "error", err)
+		return
+	}
+
+	a.logger.Infow("NODE_AGENT_NOTIFY_READY_SUCCESS", "node_id", a.NodeID, "game_id", gameID, "port", port, "subject", readySubj)
 }

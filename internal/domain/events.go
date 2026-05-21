@@ -67,4 +67,12 @@ type EventGameSessionError struct{
 	
 }
 
+// FileInfo represents metadata for an S3 asset.
+type FileInfo struct {
+	SHA256      string `json:"sha256"`
+	DownloadURL string `json:"download_url"`
+	Size        int64  `json:"size"`
+	Region      string `json:"region"`
+}
+
  

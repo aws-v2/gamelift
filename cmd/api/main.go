@@ -66,7 +66,7 @@ func main() {
 	// ── Database (PostgreSQL → SQLite fallback) ───────────────────────────────
 	var db *database.DB
 	for attempt := 1; attempt <= 4; attempt++ {
-		db, err = database.ConnectPostgres(cfg.DB)
+		db, err = database.ConnectPostgres(cfg.DB, logr)
 		if err == nil {
 			logr.Info("Connected to PostgreSQL")
 			break
@@ -82,7 +82,7 @@ func main() {
 		if sqlitePath == "" {
 			sqlitePath = "lambda.db"
 		}
-		db, err = database.ConnectSQLite(sqlitePath)
+		db, err = database.ConnectSQLite(sqlitePath, logr)
 		if err != nil {
 			logr.Fatalw("Failed to connect to SQLite fallback", "error", err)
 		}
@@ -157,6 +157,7 @@ func NewContainer(cfg *config.Config, db *database.DB, nc *nats.Conn, logr *zap.
 		cfg.S3.AccessKey,
 		cfg.S3.SecretKey,
 		cfg.S3.UseSSL,
+		logr,
 	)
 	if err != nil {
 		logr.Fatalw("failed to connect to MinIO", "error", err)
@@ -170,16 +171,15 @@ func NewContainer(cfg *config.Config, db *database.DB, nc *nats.Conn, logr *zap.
 
 
 	// ── services ─────────────────────────────────────────────────────────────
-	authSvc         := application.NewAuthService(cfg, logr)
-	validationSvc   := application.NewValidationService()
-	provisioningSvc := application.NewProvisioningService(gameRepo, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.PublicURL, cfg.AppEnv, logr,cfg.NatsPrefix)
+	validationSvc   := application.NewValidationService(logr)
+	provisioningSvc := application.NewProvisioningService(gameRepo, natsClient, minioAdapter, cfg.Debug, cfg.GodotPath, cfg.PublicURL, cfg.AppEnv, logr,cfg.NatsPrefix, cfg.VMAssetPath,cfg)
 	sessionSvc      := application.NewSessionService(sessionRepo,provisioningSvc, logr, cfg.Debug, natsClient)
 
 	// ── websocket hub ─────────────────────────────────────────────────────────
 	hub := websocket.NewHub(logr)
 
 	// ── SSE registry ─────────────────────────────────────────────────────────
-	sseRegistry := application.NewSSERegistry()
+	sseRegistry := application.NewSSERegistry(logr)
 
 
 	// ── Game service + handler ────────────────────────────────────────────────
@@ -198,7 +198,7 @@ func NewContainer(cfg *config.Config, db *database.DB, nc *nats.Conn, logr *zap.
 
 
 
-	router := httpRouter.NewRouter(authSvc, gameHandler, hub, natsClient, provisioningSvc, minioAdapter, logr, cfg)
+	router := httpRouter.NewRouter( gameHandler, hub, natsClient, provisioningSvc, minioAdapter, logr, cfg,)
 
 	return &Container{
 		Config:            cfg,

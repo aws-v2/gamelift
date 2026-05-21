@@ -1,19 +1,20 @@
 package application
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-
-	"backend/internal/domain"
-	"backend/internal/infrastructure/messaging"
-	"backend/internal/infrastructure/repository"
-	"backend/internal/infrastructure/storage"
-
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"backend/internal/config"
+	"backend/internal/domain"
+	"backend/internal/infrastructure/messaging"
+	"backend/internal/infrastructure/repository"
+	"backend/internal/infrastructure/storage"
 
 	"go.uber.org/zap"
 )
@@ -28,6 +29,8 @@ type ProvisioningService struct {
 	appEnv     string
 	logger     *zap.SugaredLogger
 	natsPrefix string
+	assetsPath string
+	cfg *config.Config
 }
 
 func NewProvisioningService(
@@ -40,6 +43,8 @@ func NewProvisioningService(
 	appEnv string,
 	logger *zap.SugaredLogger,
 	natsPrefix string,
+	assetsPath string,
+	cfg *config.Config,	
 ) *ProvisioningService {
 	return &ProvisioningService{
 		gameRepo:   gameRepo,
@@ -51,136 +56,265 @@ func NewProvisioningService(
 		appEnv:     appEnv,
 		logger:     logger,
 		natsPrefix: natsPrefix,
+		assetsPath: assetsPath,
+		cfg:        cfg,
 	}
 }
 
-// ProvisionGame triggers the on-demand startup of a stored game.
-func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode,sessionID string) error {
+func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode, sessionID string, assetURL string, fileSHA256 string) error {
+	ctx := context.Background()
 
-	game, err := s.gameRepo.GetGame(context.Background(), gameID)
+	s.logger.Infow("PROVISION_GAME_STARTING", "game_id", gameID, "mode", mode, "session_id", sessionID)
+
+	// 1. Fetch game record
+	game, err := s.gameRepo.GetGame(ctx, gameID, s.logger)
 	if err != nil {
-
+		s.logger.Errorw("PROVISION_GAME_FETCH_FAILED", "game_id", gameID, "error", err)
 		return err
 	}
-	s.logger.Infow("---sssa-------------f--------%w %s ", game.Status)
-// 	// 1. Validate State
-// if game.Status != domain.GameStatusStored && (!s.debug || game.Status != domain.GameStatusActive) {
-//     s.logger.Infof("game status check failed: gameID=%s status=%s debug=%v", game.ID, game.Status, s.debug)
-//     return domain.ErrInactiveGame
-// }
-	s.logger.Infow("----------ddddlk------f--------")
 
-	// 1. Update status to Provisioning to prevent duplicate requests
-	err = s.gameRepo.UpdateGameStatus(context.Background(), gameID, domain.GameStatusProvisioning)
-	if err != nil {
+	s.logger.Infow("PROVISION_GAME_FETCHED", "game_id", gameID, "name", game.Name, "status", game.Status, "arn", game.ARN)
+
+	// 2. Mark as provisioning to prevent duplicate requests
+	if err := s.gameRepo.UpdateGameStatus(ctx, gameID, domain.GameStatusProvisioning, s.logger); err != nil {
+		s.logger.Errorw("PROVISION_GAME_STATUS_UPDATE_FAILED",
+			"game_id", gameID,
+			"target_status", domain.GameStatusProvisioning,
+			"error", err,
+		)
 		return err
 	}
-	s.logger.Infow("----f------ddddlk------f--------")
- 
-	// 3. Publish Provisioning Event to EC2 Service
-	subj := fmt.Sprintf("%s.ec2.task.provision", s.natsPrefix)
 
-	var manifest domain.GameManifest
-	json.Unmarshal([]byte(game.Manifest), &manifest)
-	s.logger.Infow("----ds------ddddlk------f--------","subj",subj)
+	s.logger.Infow("PROVISION_GAME_STATUS_UPDATED", "game_id", gameID, "new_status", domain.GameStatusProvisioning)
+
+	// 3. Fetch file info from S3 service via NATS
+	fileInfo, err := s.getFileInfo(game.ARN)
+	if err != nil {
+		s.logger.Errorw("PROVISION_GAME_FILE_INFO_FAILED", "game_id", gameID, "arn", game.ARN, "error", err)
+		return err
+	}
+
+	s.logger.Infow("PROVISION_GAME_FILE_INFO_FETCHED",
+		"game_id", gameID,
+		"arn", game.ARN,
+		"download_url", fileInfo.DownloadURL,
+		"sha256", fileInfo.SHA256,
+	)
+
+	// // 4. Parse manifest
+	// var manifest domain.GameManifest
+	// if err := json.Unmarshal([]byte(game.Manifest), &manifest); err != nil {
+	// 	s.logger.Errorw("PROVISION_GAME_MANIFEST_PARSE_FAILED", "game_id", gameID, "error", err)
+	// 	return fmt.Errorf("failed to unmarshal manifest: %w", err)
+	// }
+
+	// s.logger.Infow("PROVISION_GAME_MANIFEST_PARSED",
+	// 	"game_id", gameID,
+	// 	"headless_bin", manifest.HeadlessBin,
+	// 	"main_scene", manifest.MainScene,
+	// )
+
+	// 5. Build and publish EC2 provision request
 
 	payload := domain.EC2ProvisionRequest{
 		Profile: "gamelift",
-		Specs: map[string]int{
-			"cpu": 2,
-			"ram": 4096,
-		},
-		Parameters: map[string]string{
+		Specs:   map[string]int{"cpu": 2, "ram": 4096},
+		
+		UserID:     game.UserID,
+		StorageARN: game.ARN,
+		SessionID:  sessionID,
+		Manifest: domain.GameManifest{
+			Name:        game.Name,
+			HeadlessBin: "server/hh.x86_64",
+			Parameters: map[string]string{
 			"game_id":        game.ID,
 			"storage_arn":    game.ARN,
-			"headless_bin":   manifest.HeadlessBin,
+			"headless_bin":   "manifest.HeadlessBin",
 			"game_name":      game.Name,
 			"backend_url":    s.backendURL,
+			"ASSET_URL":            assetURL,
 			"streaming_mode": string(mode),
+			"ASSET_PATH":     s.cfg.VMAssetPath,
+			"ASSET_SHA256":   game.Sha256,
 		},
-		UserID: game.UserID,
-		StorageARN: game.ARN,
-		SessionID:sessionID,
-		Manifest: domain.GameManifest{
-			Name: game.Name,
-			HeadlessBin: "server/hh.x86_64",
 		},
 	}
 
-	data, _ := json.Marshal(payload)
-	s.logger.Infow("Requesting game startup", "game_id", payload)
 
-	err = s.natsClient.Publish(messaging.Subject{Service: "ec2", Domain: "task", ActionType: "provision"}, data)
+
+	
+	data, err := json.Marshal(payload)
 	if err != nil {
+		s.logger.Errorw("PROVISION_GAME_PAYLOAD_MARSHAL_FAILED", "game_id", gameID, "error", err)
+		return fmt.Errorf("failed to marshal provision payload: %w", err)
+	}
+
+	subj := messaging.Subject{Service: "ec2", Domain: "task", ActionType: "provision"}
+
+	s.logger.Infow("PROVISION_GAME_PUBLISHING",
+		"game_id", gameID,
+		"session_id", sessionID,
+		"subject", subj,
+		"mode", mode,
+	)
+
+	if err := s.natsClient.Publish(subj, data); err != nil {
+		s.logger.Errorw("PROVISION_GAME_PUBLISH_FAILED",
+			"game_id", gameID,
+			"session_id", sessionID,
+			"subject", subj,
+			"error", err,
+		)
 		return err
 	}
+
+	s.logger.Infow("PROVISION_GAME_PUBLISHED",
+		"game_id", gameID,
+		"session_id", sessionID,
+		"subject", subj,
+	)
 
 	return nil
 }
 
+func (s *ProvisioningService) getFileInfo(storageARN string) (*domain.FileInfo, error) {
+	s.logger.Infow("GET_FILE_INFO_REQUESTING", "storage_arn", storageARN)
 
+	subj := messaging.Subject{
+		Service:    "s3",
+		Domain:     "task",
+		ActionType: "task.get_file_info",
+	}
 
+	payload := map[string]string{"storage_arn": storageARN}
 
+	data, err := json.Marshal(payload)
+	if err != nil {
+		s.logger.Errorw("GET_FILE_INFO_MARSHAL_FAILED", "storage_arn", storageARN, "error", err)
+		return nil, fmt.Errorf("failed to marshal file info request: %w", err)
+	}
+
+	resp, err := s.natsClient.Request(subj, data, 5*time.Second)
+	if err != nil {
+		s.logger.Errorw("GET_FILE_INFO_NATS_REQUEST_FAILED", "storage_arn", storageARN, "subject", subj, "error", err)
+		return nil, fmt.Errorf("nats request to s3 service failed: %w", err)
+	}
+
+	s.logger.Debugw("GET_FILE_INFO_RESPONSE_RECEIVED", "storage_arn", storageARN, "bytes", len(resp.Data))
+
+	var info domain.FileInfo
+	if err := json.Unmarshal(resp.Data, &info); err != nil {
+		s.logger.Errorw("GET_FILE_INFO_UNMARSHAL_FAILED", "storage_arn", storageARN, "error", err)
+		return nil, fmt.Errorf("failed to unmarshal file info: %w", err)
+	}
+
+	s.logger.Infow("GET_FILE_INFO_SUCCESS",
+		"storage_arn", storageARN,
+		"download_url", info.DownloadURL,
+		"sha256", info.SHA256,
+	)
+
+	return &info, nil
+}
+
+func (s *ProvisioningService) getAssetsURL() string {
+	url := fmt.Sprintf("%s/assets", s.backendURL)
+	s.logger.Debugw("GET_ASSETS_URL", "url", url)
+	return url
+}
 
 func (s *ProvisioningService) launchLocalDebug(game *domain.Game, mode domain.StreamingMode) {
-	s.logger.Infow("Starting local execution debug mode", "game_id", game.ID)
+	s.logger.Infow("LOCAL_DEBUG_LAUNCH_STARTING", "game_id", game.ID, "mode", mode)
 
-	// Prepare Paths
 	tempDir := filepath.Join("/tmp", fmt.Sprintf("game_%s", game.ID))
 	tempZip := filepath.Join("/tmp", fmt.Sprintf("game_%s.zip", game.ID))
-	os.RemoveAll(tempDir)
-	os.MkdirAll(tempDir, os.ModePerm)
 
-	// S3 Download
+	os.RemoveAll(tempDir)
+	if err := os.MkdirAll(tempDir, os.ModePerm); err != nil {
+		s.logger.Errorw("LOCAL_DEBUG_MKDIR_FAILED", "game_id", game.ID, "path", tempDir, "error", err)
+		return
+	}
+
+	// Parse ARN → bucket + key
 	arnParts := strings.Split(game.StorageARN, ":::")
 	if len(arnParts) < 2 {
+		s.logger.Errorw("LOCAL_DEBUG_INVALID_ARN", "game_id", game.ID, "arn", game.StorageARN)
 		return
 	}
 	pathParts := strings.SplitN(arnParts[1], "/", 2)
+	if len(pathParts) < 2 {
+		s.logger.Errorw("LOCAL_DEBUG_ARN_PARSE_FAILED", "game_id", game.ID, "arn", game.StorageARN)
+		return
+	}
 	bucket, key := pathParts[0], pathParts[1]
 
+	s.logger.Infow("LOCAL_DEBUG_DOWNLOADING", "game_id", game.ID, "bucket", bucket, "key", key, "dest", tempZip)
+
 	if err := s.storage.DownloadFile(context.Background(), bucket, key, tempZip); err != nil {
-		s.logger.Errorw("Download failed", "error", err)
+		s.logger.Errorw("LOCAL_DEBUG_DOWNLOAD_FAILED", "game_id", game.ID, "bucket", bucket, "key", key, "error", err)
 		return
 	}
 
-	// Unzip
-	exec.Command("unzip", "-o", tempZip, "-d", tempDir).Run()
+	s.logger.Infow("LOCAL_DEBUG_DOWNLOAD_SUCCESS", "game_id", game.ID, "dest", tempZip)
 
-	// Parse Manifest
+	if err := exec.Command("unzip", "-o", tempZip, "-d", tempDir).Run(); err != nil {
+		s.logger.Errorw("LOCAL_DEBUG_UNZIP_FAILED", "game_id", game.ID, "src", tempZip, "dest", tempDir, "error", err)
+		return
+	}
+
+	s.logger.Infow("LOCAL_DEBUG_UNZIP_SUCCESS", "game_id", game.ID, "dest", tempDir)
+
 	var manifest domain.GameManifest
-	json.Unmarshal([]byte(game.Manifest), &manifest)
-	binPath := filepath.Join(tempDir, manifest.HeadlessBin)
-	os.Chmod(binPath, 0755)
+	if err := json.Unmarshal([]byte(game.Manifest), &manifest); err != nil {
+		s.logger.Errorw("LOCAL_DEBUG_MANIFEST_PARSE_FAILED", "game_id", game.ID, "error", err)
+		return
+	}
 
-	// Execute in Terminal
-	args := []string{}
+	binPath := filepath.Join(tempDir, manifest.HeadlessBin)
+	if err := os.Chmod(binPath, 0755); err != nil {
+		s.logger.Warnw("LOCAL_DEBUG_CHMOD_FAILED", "game_id", game.ID, "bin", binPath, "error", err)
+	}
+
+	var args []string
 	var cmdPrefix []string
-	
-	// Use xvfb-run only for offscreen rendering in video mode on Linux
+
 	if mode == domain.StreamingModeVideo {
 		args = append(args, "--mode=webrtc", "--rendering-method", "gl_compatibility")
-		// NOTE: Requires 'sudo apt install xvfb' on Debian/Ubuntu
 		cmdPrefix = []string{"xvfb-run", "--auto-servernum", "--server-args='-screen 0 1280x720x24'"}
+		s.logger.Infow("LOCAL_DEBUG_MODE_VIDEO", "game_id", game.ID, "xvfb", true)
 	} else {
 		args = append(args, "--headless", "--mode=state_sync")
+		s.logger.Infow("LOCAL_DEBUG_MODE_HEADLESS", "game_id", game.ID)
 	}
 
-	// Correctly resolve binary path relative to tempDir
-	exec_cmd := fmt.Sprintf("./%s %s", manifest.HeadlessBin, strings.Join(args, " "))
+	execCmd := fmt.Sprintf("./%s %s", manifest.HeadlessBin, strings.Join(args, " "))
 	if len(cmdPrefix) > 0 {
-		exec_cmd = fmt.Sprintf("%s %s", strings.Join(cmdPrefix, " "), exec_cmd)
+		execCmd = fmt.Sprintf("%s %s", strings.Join(cmdPrefix, " "), execCmd)
 	}
 
-	terminalCmd := fmt.Sprintf("cd %s && %s; read -p 'Press enter to close...'",
-		tempDir, exec_cmd)
+	terminalCmd := fmt.Sprintf("cd %s && %s; read -p 'Press enter to close...'", tempDir, execCmd)
+
+	s.logger.Infow("LOCAL_DEBUG_LAUNCHING", "game_id", game.ID, "cmd", execCmd)
+
 	cmd := exec.Command("gnome-terminal", "--", "bash", "-c", terminalCmd)
-
 	if err := cmd.Start(); err != nil {
-		s.logger.Warnw("gnome-terminal failed, falling back to background exec", "error", err)
-		exec.Command(binPath, args...).Start()
+		s.logger.Warnw("LOCAL_DEBUG_GNOME_TERMINAL_FAILED",
+			"game_id", game.ID,
+			"error", err,
+			"fallback", "background exec",
+		)
+		if err := exec.Command(binPath, args...).Start(); err != nil {
+			s.logger.Errorw("LOCAL_DEBUG_FALLBACK_EXEC_FAILED", "game_id", game.ID, "bin", binPath, "error", err)
+			return
+		}
 	}
 
-	// Finalize Status
-	s.gameRepo.UpdateGameStatus(context.Background(),game.ID, domain.GameStatusActive)
+	s.logger.Infow("LOCAL_DEBUG_LAUNCHED", "game_id", game.ID, "mode", mode)
+
+	if err := s.gameRepo.UpdateGameStatus(context.Background(), game.ID, domain.GameStatusActive, s.logger); err != nil {
+		s.logger.Errorw("LOCAL_DEBUG_STATUS_UPDATE_FAILED", "game_id", game.ID, "error", err)
+		return
+	}
+
+	s.logger.Infow("LOCAL_DEBUG_STATUS_UPDATED", "game_id", game.ID, "new_status", domain.GameStatusActive)
 }

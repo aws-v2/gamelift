@@ -44,6 +44,7 @@ type Config struct {
 	}
 	DocsPath string
 	NatsPrefix string
+	VMAssetPath string
 }
 
 func Load() *Config {
@@ -56,6 +57,7 @@ func Load() *Config {
 	
 
 	cfg := &Config{
+		VMAssetPath: getEnv("ASSET_PATH","/var/lib/libvirt/game-files"),
 		AppEnv:        getEnv("APP_ENV", "dev"),
 		ServerPort:    port,
 		NatsURL:       getEnv("NATS_URL", "nats://nats-prod:4222"),

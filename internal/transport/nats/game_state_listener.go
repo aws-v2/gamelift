@@ -26,23 +26,32 @@ func NewGameStateListener(natsClient repository.MessagingClient, hub *websocket.
 }
 
 func (l *GameStateListener) Start() {
-	// 1. Listen for any game state updates from Godot instances (NATS)
 	subj := messaging.GetGameStateBroadcastSubject()
 
+	l.logger.Infow("GAME_STATE_LISTENER_STARTING", "subject", subj, "env", l.appEnv)
+
 	_, err := l.natsClient.Subscribe(subj, func(msg *nats.Msg) {
-		l.logger.Debugw("Relaying Godot State", "bytes", len(msg.Data))
+		l.logger.Debugw("GAME_STATE_MESSAGE_RECEIVED",
+			"subject", msg.Subject,
+			"bytes", len(msg.Data),
+		)
+
 		l.hub.Broadcast(msg.Data)
+
+		l.logger.Debugw("GAME_STATE_MESSAGE_BROADCASTED",
+			"subject", msg.Subject,
+			"bytes", len(msg.Data),
+		)
 	})
 
 	if err != nil {
-		l.logger.Errorw("Failed to subscribe to NATS", "error", err)
+		l.logger.Errorw("GAME_STATE_LISTENER_SUBSCRIBE_FAILED", "subject", subj, "env", l.appEnv, "error", err)
+		return
 	}
 
-	// 2. Start Randomized Mock Data Generator (Hijacking the pipe)
-	// go l.runMockGenerator()
+	l.logger.Infow("GAME_STATE_LISTENER_SUBSCRIBED", "subject", subj, "env", l.appEnv)
 }
 
 func (l *GameStateListener) runMockGenerator() {
-	l.logger.Infow("Randomized 3D Mock Data Generator is available but currently DISABLED")
-	// (Hidden logic)
+	l.logger.Infow("GAME_STATE_MOCK_GENERATOR_DISABLED", "note", "mock generator is available but currently disabled")
 }

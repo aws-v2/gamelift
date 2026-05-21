@@ -11,6 +11,7 @@ CREATE TABLE games (
     streaming_mode TEXT,
     manifest TEXT,
     storage_arn TEXT,
+    sha256 TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE

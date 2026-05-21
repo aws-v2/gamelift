@@ -14,7 +14,6 @@ var webrtcUpgrader = websocket.Upgrader{
 }
 
 type WebRTCSignalingHandler struct {
-	// rooms maps a session ID to a list of participants (client and game server)
 	rooms   map[string][]*websocket.Conn
 	roomsMu sync.Mutex
 	logger  *zap.SugaredLogger
@@ -29,14 +28,19 @@ func NewWebRTCSignalingHandler(logger *zap.SugaredLogger) *WebRTCSignalingHandle
 
 func (h *WebRTCSignalingHandler) HandleSignaling(c *gin.Context) {
 	sessionID := c.Query("session_id")
+	remoteAddr := c.Request.RemoteAddr
+
 	if sessionID == "" {
+		h.logger.Warnw("WEBRTC_SIGNALING_MISSING_SESSION_ID", "remote_addr", remoteAddr)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required"})
 		return
 	}
 
+	h.logger.Infow("WEBRTC_SIGNALING_UPGRADE", "session_id", sessionID, "remote_addr", remoteAddr)
+
 	conn, err := webrtcUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		h.logger.Errorw("WebRTC upgrade failed", "error", err)
+		h.logger.Errorw("WEBRTC_SIGNALING_UPGRADE_FAILED", "session_id", sessionID, "remote_addr", remoteAddr, "error", err)
 		return
 	}
 	defer conn.Close()
@@ -46,29 +50,53 @@ func (h *WebRTCSignalingHandler) HandleSignaling(c *gin.Context) {
 	roomSize := len(h.rooms[sessionID])
 	h.roomsMu.Unlock()
 
-	h.logger.Infow("Participant joined WebRTC Hub", "session_id", sessionID, "total_participants", roomSize)
+	h.logger.Infow("WEBRTC_SIGNALING_PARTICIPANT_JOINED", "session_id", sessionID, "remote_addr", remoteAddr, "total_participants", roomSize)
 
-	// In a simple signaling server, we just relay any received message to the other participant in the same room.
+	// relay loop
 	for {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
-			h.logger.Errorw("WebRTC session error", "session_id", sessionID, "error", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+				h.logger.Errorw("WEBRTC_SIGNALING_READ_ERROR", "session_id", sessionID, "remote_addr", remoteAddr, "error", err)
+			} else {
+				h.logger.Infow("WEBRTC_SIGNALING_CONNECTION_CLOSED", "session_id", sessionID, "remote_addr", remoteAddr)
+			}
 			break
 		}
 
+		h.logger.Infow("WEBRTC_SIGNALING_MESSAGE_RECEIVED",
+			"session_id", sessionID,
+			"remote_addr", remoteAddr,
+			"message_type", messageType,
+			"message_size_bytes", len(message),
+		)
+
 		h.roomsMu.Lock()
 		participants := h.rooms[sessionID]
+		relayCount := 0
 		for _, p := range participants {
 			if p != conn {
 				if err := p.WriteMessage(messageType, message); err != nil {
-					h.logger.Errorw("WebRTC relay error", "error", err)
+					h.logger.Errorw("WEBRTC_SIGNALING_RELAY_FAILED",
+						"session_id", sessionID,
+						"remote_addr", remoteAddr,
+						"error", err,
+					)
+				} else {
+					relayCount++
 				}
 			}
 		}
 		h.roomsMu.Unlock()
+
+		h.logger.Infow("WEBRTC_SIGNALING_MESSAGE_RELAYED",
+			"session_id", sessionID,
+			"remote_addr", remoteAddr,
+			"relayed_to", relayCount,
+		)
 	}
 
-	// Cleanup
+	// cleanup
 	h.roomsMu.Lock()
 	participants := h.rooms[sessionID]
 	for i, p := range participants {
@@ -77,8 +105,19 @@ func (h *WebRTCSignalingHandler) HandleSignaling(c *gin.Context) {
 			break
 		}
 	}
-	if len(h.rooms[sessionID]) == 0 {
+	remaining := len(h.rooms[sessionID])
+	if remaining == 0 {
 		delete(h.rooms, sessionID)
 	}
 	h.roomsMu.Unlock()
+
+	h.logger.Infow("WEBRTC_SIGNALING_PARTICIPANT_LEFT",
+		"session_id", sessionID,
+		"remote_addr", remoteAddr,
+		"remaining_participants", remaining,
+	)
+
+	if remaining == 0 {
+		h.logger.Infow("WEBRTC_SIGNALING_ROOM_CLOSED", "session_id", sessionID)
+	}
 }
