@@ -9,3 +9,6 @@ ADD COLUMN IF NOT EXISTS upload_status TEXT DEFAULT 'pending';
 
 ALTER TABLE games
 ADD COLUMN IF NOT EXISTS version TEXT;
+
+
+
