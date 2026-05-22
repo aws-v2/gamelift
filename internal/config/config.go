@@ -54,18 +54,19 @@ func Load() *Config {
 	if !strings.HasPrefix(port, ":") {
 	port = ":" + port
 }
-	
+	appEnv := getEnv("APP_ENV", "dev")
+
 
 	cfg := &Config{
 		VMAssetPath: getEnv("ASSET_PATH","/var/lib/libvirt/game-files"),
-		AppEnv:        getEnv("APP_ENV", "dev"),
+		// AppEnv:        getEnv("APP_ENV", "dev"),
 		ServerPort:    port,
 		NatsURL:       getEnv("NATS_URL", "nats://nats-prod:4222"),
 		NatsUser:      getEnv("NATS_USER", "auth-server"),
 		NatsPassword:  getEnv("NATS_PASSWORD", "auth-secret"),
 		PublicURL:     getEnv("PUBLIC_URL", "http://localhost:8091"),
-		// Debug:         getEnv("DEBUG_MODE", "false") == "false",
-		Debug: getEnv("DEBUG_MODE", "false") == "true",
+		AppEnv: appEnv,
+    Debug:  appEnv == "dev",
 		GodotPath:     getEnv("GODOT_PATH", "/usr/local/bin/godot"),
 		JWTExpiration: time.Duration(getEnvInt("JWT_EXPIRATION_MS", 86400000)) * time.Millisecond,
 		DB: database.Config{
