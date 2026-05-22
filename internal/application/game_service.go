@@ -64,9 +64,9 @@ type InitUploadRequest struct {
 }
 
 type InitUploadResult struct {
-	UploadURL string `json:"upload_url"`
-	ObjectKey string `json:"object_key"`
-	GameID    string `json:"game_id"`
+	UploadURL  string `json:"upload_url"`
+	ObjectKey  string `json:"object_key"`
+	GameID     string `json:"game_id"`
 	SHA256Hint string `json:"sha256_hint"`
 }
 
@@ -183,6 +183,7 @@ type createPresignedURLRequestPayload struct {
 	ARN       string `json:"arn"`
 	Extension string `json:"extension"`
 }
+
 func (s *gameService) InitUpload(
 	ctx context.Context,
 	req InitUploadRequest,
@@ -214,7 +215,7 @@ func (s *gameService) InitUpload(
 		UserID:        req.UserID,
 		Status:        domain.GameStatusPending,
 		StreamingMode: domain.StreamingModeState,
-		Sha256:  req.SHA256,
+		Sha256:        req.SHA256,
 	}
 
 	if err := s.repo.CreateGame(ctx, game, log); err != nil {
@@ -240,18 +241,18 @@ func (s *gameService) InitUpload(
 
 	// 4. Create upload session request (CAS DESIGN)
 	payload, err := json.Marshal(map[string]any{
-		"asset_id":    game.ID,
+		"asset_id":   game.ID,
 		"user_id":    game.UserID,
 		"object_key": objectKey,
-		"asset_type":    "game",
-		"sha256":   req.SHA256,
+		"asset_type": "game",
+		"sha256":     req.SHA256,
 	})
 	if err != nil {
 		log.Errorw("PAYLOAD_MARSHAL_FAILED", "error", err)
 		return nil, fmt.Errorf("marshal presign payload: %w", err)
 	}
 
-	log.Infow("REQUESTING_S3_UPLOAD_SESSION",req.SHA256)
+	log.Infow("REQUESTING_S3_UPLOAD_SESSION", req.SHA256)
 
 	reply, err := s.natsClient.Request(
 		messaging.GetS3GameInitUploadSubject(),
@@ -288,8 +289,6 @@ func (s *gameService) InitUpload(
 		"game_id", game.ID,
 		"object_key", objectKey,
 	)
- 
-
 
 	return &InitUploadResult{
 		GameID:     game.ID,
@@ -298,11 +297,6 @@ func (s *gameService) InitUpload(
 		SHA256Hint: presignResp.SHA256,
 	}, nil
 }
-
-
-
-
-
 
 func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest) (*PlayGameResult, error) {
 	game, err := s.repo.GetGame(ctx, req.GameID, s.log)
@@ -331,12 +325,13 @@ func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest) (*PlayG
 		Status:    session.Status,
 	}, nil
 }
+
 type createPresignDownloadURLResponse struct {
 	URL string `json:"url"`
-
 }
+
 func (s *gameService) CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error) {
-// 1. Create session skeleton
+	// 1. Create session skeleton
 	session := &domain.GameSession{
 		ID:     uuid.New().String(),
 		GameID: gameID,
@@ -354,46 +349,38 @@ func (s *gameService) CreateSession(ctx context.Context, gameID string, req doma
 		return nil, fmt.Errorf("get game: %w", err)
 	}
 
-
 	payload, err := json.Marshal(map[string]any{
-		"asset_id":    game.ID,
-		"user_id":    game.UserID,
-		"sha256":   game.Sha256,
-		"correlation_id":uuid.New().String(),
+		"asset_id":       game.ID,
+		"user_id":        game.UserID,
+		"sha256":         game.Sha256,
+		"correlation_id": uuid.New().String(),
 	})
 
+	reply, err := s.natsClient.Request(
+		messaging.GetS3GameInitDownloadSubject(),
+		payload,
+		5*time.Second,
+	)
 
+	if err != nil {
+		s.log.Errorw("S3_REQUEST_FAILED", "error", err)
+		return nil, fmt.Errorf("presign request failed: %w", err)
+	}
 
-reply, err := s.natsClient.Request(
-    messaging.GetS3GameInitDownloadSubject(),
-    payload,
-    5*time.Second,
-)
+	s.log.Infow("S3_RESPONSE_RECEIVED", "bytes", len(reply.Data))
 
+	var resp createPresignDownloadURLResponse
+	if err := json.Unmarshal(reply.Data, &resp); err != nil {
+		s.log.Errorw("S3_RESPONSE_UNMARSHAL_FAILED",
+			"game_id", gameID,
+			"user_id", req.UserID,
+			"bytes", len(reply.Data),
+			"error", err,
+		)
+		return nil, fmt.Errorf("unmarshal presign response: %w", err)
+	}
 
-
-
-if err != nil {
-    s.log.Errorw("S3_REQUEST_FAILED", "error", err)
-    return nil, fmt.Errorf("presign request failed: %w", err)
-}
-
-s.log.Infow("S3_RESPONSE_RECEIVED", "bytes", len(reply.Data))
-
-var resp createPresignDownloadURLResponse
-if err := json.Unmarshal(reply.Data, &resp); err != nil {
-    s.log.Errorw("S3_RESPONSE_UNMARSHAL_FAILED",
-        "game_id", gameID,
-        "user_id", req.UserID,
-        "bytes", len(reply.Data),
-        "error", err,
-    )
-    return nil, fmt.Errorf("unmarshal presign response: %w", err)
-}
-
-
-
-// get the gamesha256 then callthe s3service toget createa presigned url forthese file
+	// get the gamesha256 then callthe s3service toget createa presigned url forthese file
 
 	// 4. Create session in external agent/session service
 	initService := domain.CreateSessionRequest{
@@ -401,8 +388,6 @@ if err := json.Unmarshal(reply.Data, &resp); err != nil {
 		UserID:   req.UserID,
 		AssetURL: resp.URL, // FIXED naming
 	}
-
-
 
 	ses, err := s.sessionService.CreateSession(ctx, initService)
 	if err != nil {
@@ -414,9 +399,9 @@ if err := json.Unmarshal(reply.Data, &resp); err != nil {
 	session.NodeID = ses.NodeID
 	session.ID = ses.ID
 
-	if err := s.repo.CreateSession(ctx, session, s.log); err != nil {
-		return nil, fmt.Errorf("create session: %w", err)
-	}
+	// if err := s.repo.CreateSession(ctx, session, s.log); err != nil {
+	// 	return nil, fmt.Errorf("create session: %w", err)
+	// }
 
 	fmt.Printf("session check here -*-> %s", session.ID)
 
