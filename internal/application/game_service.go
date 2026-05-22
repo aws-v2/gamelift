@@ -414,9 +414,9 @@ if err := json.Unmarshal(reply.Data, &resp); err != nil {
 	session.NodeID = ses.NodeID
 	session.ID = ses.ID
 
-	// if err := s.repo.CreateSession(ctx, session); err != nil {
-	// 	return nil, fmt.Errorf("create session: %w", err)
-	// }
+	if err := s.repo.CreateSession(ctx, session, s.log); err != nil {
+		return nil, fmt.Errorf("create session: %w", err)
+	}
 
 	fmt.Printf("session check here -*-> %s", session.ID)
 

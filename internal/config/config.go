@@ -64,7 +64,8 @@ func Load() *Config {
 		NatsUser:      getEnv("NATS_USER", "auth-server"),
 		NatsPassword:  getEnv("NATS_PASSWORD", "auth-secret"),
 		PublicURL:     getEnv("PUBLIC_URL", "http://localhost:8091"),
-		Debug:         getEnv("DEBUG_MODE", "false") == "false",
+		// Debug:         getEnv("DEBUG_MODE", "false") == "false",
+		Debug: getEnv("DEBUG_MODE", "false") == "true",
 		GodotPath:     getEnv("GODOT_PATH", "/usr/local/bin/godot"),
 		JWTExpiration: time.Duration(getEnvInt("JWT_EXPIRATION_MS", 86400000)) * time.Millisecond,
 		DB: database.Config{
