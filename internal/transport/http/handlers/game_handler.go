@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
+
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -51,7 +51,7 @@ func (h *GameHandler) GetGame(c *gin.Context) {
 
 	h.log.Infow("HANDLER_GET_GAME", "game_id", id)
 
-	game, err := h.svc.GetGame(c.Request.Context(), strconv.Itoa(int(id)))
+	game, err := h.svc.GetGame(c.Request.Context(), id.String())
 	if err != nil {
 		h.log.Warnw("HANDLER_GET_GAME_NOT_FOUND", "game_id", id, "error", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "game not found"})
@@ -102,7 +102,7 @@ func (h *GameHandler) UpdateGame(c *gin.Context) {
 
 	h.log.Infow("HANDLER_UPDATE_GAME", "game_id", id)
 
-	game, err := h.svc.UpdateGame(c.Request.Context(), strconv.Itoa(int(id)), req)
+	game, err := h.svc.UpdateGame(c.Request.Context(), id.String(), req)
 	if err != nil {
 		h.log.Errorw("HANDLER_UPDATE_GAME_FAILED", "game_id", id, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update game"})
@@ -123,7 +123,7 @@ func (h *GameHandler) DeleteGame(c *gin.Context) {
 
 	h.log.Infow("HANDLER_DELETE_GAME", "game_id", id)
 
-	if err := h.svc.DeleteGame(c.Request.Context(), strconv.Itoa(int(id))); err != nil {
+	if err := h.svc.DeleteGame(c.Request.Context(), id.String()); err != nil {
 		h.log.Errorw("HANDLER_DELETE_GAME_FAILED", "game_id", id, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete game"})
 		return
@@ -197,7 +197,7 @@ func (h *GameHandler) GetManifest(c *gin.Context) {
 
 	h.log.Infow("HANDLER_GET_MANIFEST", "game_id", id)
 
-	manifest, err := h.svc.GetManifest(c.Request.Context(), strconv.Itoa(int(id)))
+	manifest, err := h.svc.GetManifest(c.Request.Context(),id.String())
 	if err != nil {
 		h.log.Warnw("HANDLER_GET_MANIFEST_NOT_FOUND", "game_id", id, "error", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "manifest not found"})
@@ -218,7 +218,7 @@ func (h *GameHandler) DownloadPackage(c *gin.Context) {
 
 	h.log.Infow("HANDLER_DOWNLOAD_PACKAGE", "game_id", id)
 
-	url, err := h.svc.GetDownloadURL(c.Request.Context(), strconv.Itoa(int(id)))
+	url, err := h.svc.GetDownloadURL(c.Request.Context(),id.String())
 	if err != nil {
 		h.log.Warnw("HANDLER_DOWNLOAD_PACKAGE_NOT_FOUND", "game_id", id, "error", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "package not found"})
@@ -366,7 +366,7 @@ func (h *GameHandler) GetSessionStatus(c *gin.Context) {
 
 	h.log.Infow("HANDLER_GET_SESSION_STATUS", "session_id", id)
 
-	session, err := h.svc.GetSessionStatus(c.Request.Context(), strconv.Itoa(int(id)))
+	session, err := h.svc.GetSessionStatus(c.Request.Context(),id.String())
 	if err != nil {
 		h.log.Warnw("HANDLER_GET_SESSION_STATUS_NOT_FOUND", "session_id", id, "error", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
@@ -379,11 +379,9 @@ func (h *GameHandler) GetSessionStatus(c *gin.Context) {
 
 // ── helper ────────────────────────────────────────────────────────────────────
 
-func parseID(c *gin.Context) (uint, error) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	return uint(id), err
+func parseID(c *gin.Context) (uuid.UUID, error) {
+    return uuid.Parse(c.Param("id"))
 }
-
 // func (h *GameHandler) StreamInstanceEvents(c *gin.Context) {
 // 	instanceID := c.Param("instanceId")
 
