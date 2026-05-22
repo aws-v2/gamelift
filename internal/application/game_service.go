@@ -362,7 +362,6 @@ func (s *gameService) CreateSession(ctx context.Context, gameID string, req doma
 		"correlation_id":uuid.New().String(),
 	})
 
-    s.log.Errorw("S3_REQUEST_FAILED", ";;;", req)
 
 
 reply, err := s.natsClient.Request(
