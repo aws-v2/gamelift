@@ -273,6 +273,7 @@ func (l *S3Listener) handleInstanceLifecycle(msg *nats.Msg) {
 		l.sseRegistry.Notify(event.SessionID, domain.GameSessionEvent{
 			AgentURL: event.Payload.AgentWS,
 			VMID:     event.InstanceID,
+			VMIP: event.Payload.IPAddress,
 		})
 		l.logger.Infow("LIFECYCLE_PROVISIONED_SSE_NOTIFIED",
 			"instance_id", event.InstanceID,

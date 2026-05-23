@@ -94,13 +94,13 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 
 	s.logger.Infow("SESSION_CREATE_PERSISTED", "session_id", session.ID, "game_id", session.GameID)
 
-	if s.debug {
-		s.logger.Warnw("SESSION_CREATE_DEBUG_MODE",
-			"session_id", session.ID,
-			"note", "provisioning skipped in debug mode",
-		)
-		return session, nil
-	}
+	// if s.debug {
+	// 	s.logger.Warnw("SESSION_CREATE_DEBUG_MODE",
+	// 		"session_id", session.ID,
+	// 		"note", "provisioning skipped in debug mode",
+	// 	)
+	// 	return session, nil
+	// }
 
 	s.logger.Infow("SESSION_CREATE_PROVISIONING",
 		"session_id", session.ID,

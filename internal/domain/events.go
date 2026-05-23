@@ -56,6 +56,7 @@ type GameReadyEvent struct {
 type GameSessionEvent struct {
 	AgentURL string `json:"agent_url,omitempty"`
 	VMID     string `json:"vm_id,omitempty"`
+	VMIP string `json:"vm_ip"`
 	Error    string `json:"error,omitempty"`
 }
 
