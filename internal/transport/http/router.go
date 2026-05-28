@@ -39,7 +39,7 @@ func NewRouter(
 	{
 		sse := base.Group("/fleet")
 
-		sse.GET("/instances/:instanceId/events", gameHandler.StreamSessionEvents)
+		sse.GET("/instances/:sessionId/events", gameHandler.StreamSessionEvents)
 
 	}
 	{
