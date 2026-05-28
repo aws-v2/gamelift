@@ -99,11 +99,11 @@ func main() {
 
 	// ── Wire + start application ──────────────────────────────────────────────
 	c := NewContainer(cfg, db, nc, logr)
-	c.Start()
 
 	// ── HTTP server ───────────────────────────────────────────────────────────
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	c.Start(ctx)
 
 	srv := &http.Server{
 		Addr:    cfg.ServerPort,
@@ -213,10 +213,10 @@ func NewContainer(cfg *config.Config, db *database.DB, nc *nats.Conn, logr *zap.
 }
 
 // Start launches all background goroutines.
-func (c *Container) Start() {
+func (c *Container) Start(ctx context.Context) {
 	go c.Hub.Run()
-	go c.S3Listener.Start()
-	go c.NodeAgent.Start()
+	go c.S3Listener.Start(ctx)
+	go c.NodeAgent.Start(ctx)
 	go c.GameStateListener.Start()
 	go c.InstanceListener.Start()
 }

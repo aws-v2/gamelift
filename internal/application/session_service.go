@@ -44,7 +44,7 @@ const (
 	StatusFailed       = "failed"
 )
 
-func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionRequest) (*domain.GameSession, error) {
+func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionRequest,sessionID string) (*domain.GameSession, error) {
 	s.logger.Infow("SESSION_CREATE", "game_id", req.GameID, "user_id", req.UserID)
 
 	// Reuse an existing active session if one exists
@@ -66,7 +66,7 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 	}
 
 	session := &domain.GameSession{
-		ID:        generateID(),
+		ID:        sessionID,
 		GameID:    req.GameID,
 		UserID:    req.UserID,
 		Status:    StatusProvisioning,
@@ -107,7 +107,7 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		"game_id", session.GameID,
 	)
 
-	if err := s.provisioningSvc.ProvisionGame(session.GameID, domain.StreamingModeState, session.ID,req.AssetURL,req.Sha256); err != nil {
+	if err := s.provisioningSvc.ProvisionGame(session.GameID, domain.StreamingModeState, session.ID,req.AssetURL,req.Sha256, session.UserID); err != nil {
 		s.logger.Errorw("SESSION_CREATE_PROVISION_FAILED",
 			"session_id", session.ID,
 			"game_id", session.GameID,
@@ -177,10 +177,4 @@ func generateToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
-}
-
-func generateID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
 }

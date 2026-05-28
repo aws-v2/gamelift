@@ -134,7 +134,7 @@ func (h *GameHandler) DeleteGame(c *gin.Context) {
 }
 
 func (h *GameHandler) StreamSessionEvents(c *gin.Context) {
-	sessionID := c.Param("instanceId")
+	sessionID := c.Param("sessionId")
 	w := c.Writer
 	r := c.Request
 
@@ -197,7 +197,7 @@ func (h *GameHandler) GetManifest(c *gin.Context) {
 
 	h.log.Infow("HANDLER_GET_MANIFEST", "game_id", id)
 
-	manifest, err := h.svc.GetManifest(c.Request.Context(),id.String())
+	manifest, err := h.svc.GetManifest(c.Request.Context(), id.String())
 	if err != nil {
 		h.log.Warnw("HANDLER_GET_MANIFEST_NOT_FOUND", "game_id", id, "error", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "manifest not found"})
@@ -218,7 +218,7 @@ func (h *GameHandler) DownloadPackage(c *gin.Context) {
 
 	h.log.Infow("HANDLER_DOWNLOAD_PACKAGE", "game_id", id)
 
-	url, err := h.svc.GetDownloadURL(c.Request.Context(),id.String())
+	url, err := h.svc.GetDownloadURL(c.Request.Context(), id.String())
 	if err != nil {
 		h.log.Warnw("HANDLER_DOWNLOAD_PACKAGE_NOT_FOUND", "game_id", id, "error", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "package not found"})
@@ -237,7 +237,6 @@ func computeSHA256(file io.Reader) (string, error) {
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
-
 
 func (h *GameHandler) InitUpload(c *gin.Context) {
 	reqID := uuid.New().String()
@@ -274,9 +273,9 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 
 	// 4. Integrity Verification: Reject if they don't match
 	if clientSHA != "" && clientSHA != backendSHA {
-		log.Errorw("HANDLER_INTEGRITY_MISMATCH", 
-			"user_id", userID, 
-			"client_sha", clientSHA, 
+		log.Errorw("HANDLER_INTEGRITY_MISMATCH",
+			"user_id", userID,
+			"client_sha", clientSHA,
 			"backend_sha", backendSHA,
 		)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -306,10 +305,11 @@ func (h *GameHandler) InitUpload(c *gin.Context) {
 	c.PureJSON(http.StatusOK, result)
 }
 
-
 func (h *GameHandler) PlayGame(c *gin.Context) {
 	var req application.PlayGameRequest
 	req.UserID = c.GetString("userID")
+	sessionId :=uuid.New().String()
+	
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.log.Warnw("HANDLER_PLAY_GAME_BAD_REQUEST", "user_id", req.UserID, "error", err)
@@ -319,7 +319,7 @@ func (h *GameHandler) PlayGame(c *gin.Context) {
 
 	h.log.Infow("HANDLER_PLAY_GAME", "user_id", req.UserID, "game_id", req.GameID)
 
-	result, err := h.svc.PlayGame(c.Request.Context(), req)
+	result, err := h.svc.PlayGame(c.Request.Context(), req,sessionId)
 	if err != nil {
 		h.log.Errorw("HANDLER_PLAY_GAME_FAILED", "user_id", req.UserID, "game_id", req.GameID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start game"})
@@ -330,12 +330,19 @@ func (h *GameHandler) PlayGame(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+ 
+
 func (h *GameHandler) CreateSession(c *gin.Context) {
 	gameID := c.Param("id")
 	userID := c.GetString("userID")
+	// we need togenerate the session id here
+	sessionId :=   uuid.New().String()
+
 
 	var req domain.CreateSessionRequest
 	req.UserID = userID
+
+	h.log.Warnw("Session assigned session id: ", sessionId)
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.log.Warnw("HANDLER_CREATE_SESSION_BAD_REQUEST", "game_id", gameID, "user_id", userID, "error", err)
@@ -345,7 +352,7 @@ func (h *GameHandler) CreateSession(c *gin.Context) {
 
 	h.log.Infow("HANDLER_CREATE_SESSION", "game_id", gameID, "user_id", userID)
 
-	session, err := h.svc.CreateSession(c.Request.Context(), gameID, req)
+	session, err := h.svc.CreateSession(c.Request.Context(), gameID, req, sessionId)
 	if err != nil {
 		h.log.Errorw("HANDLER_CREATE_SESSION_FAILED", "game_id", gameID, "user_id", userID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -353,6 +360,8 @@ func (h *GameHandler) CreateSession(c *gin.Context) {
 	}
 
 	h.log.Infow("HANDLER_CREATE_SESSION_SUCCESS", "session_id", session.ID, "game_id", gameID, "user_id", userID)
+	h.log.Warnw("the returned session has this session id: ", sessionId)
+
 	c.JSON(http.StatusCreated, session)
 }
 
@@ -366,7 +375,7 @@ func (h *GameHandler) GetSessionStatus(c *gin.Context) {
 
 	h.log.Infow("HANDLER_GET_SESSION_STATUS", "session_id", id)
 
-	session, err := h.svc.GetSessionStatus(c.Request.Context(),id.String())
+	session, err := h.svc.GetSessionStatus(c.Request.Context(), id.String())
 	if err != nil {
 		h.log.Warnw("HANDLER_GET_SESSION_STATUS_NOT_FOUND", "session_id", id, "error", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
@@ -380,14 +389,14 @@ func (h *GameHandler) GetSessionStatus(c *gin.Context) {
 // ── helper ────────────────────────────────────────────────────────────────────
 
 func parseID(c *gin.Context) (uuid.UUID, error) {
-    return uuid.Parse(c.Param("id"))
+	return uuid.Parse(c.Param("id"))
 }
+
 // func (h *GameHandler) StreamInstanceEvents(c *gin.Context) {
 // 	instanceID := c.Param("instanceId")
 
 // 	// ch := h.sseBroker.Register(instanceID)
 // 	// defer h.sseBroker.Unregister(instanceID)
-
 
 // 	ch := h.sseRegistry.Register(sessionID)
 // 	defer h.sseRegistry.Unregister(sessionID, ch)

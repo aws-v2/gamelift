@@ -61,7 +61,7 @@ func NewProvisioningService(
 	}
 }
 
-func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode, sessionID string, assetURL string, fileSHA256 string) error {
+func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.StreamingMode, sessionID string, assetURL string, fileSHA256 string, userID string) error {
 	ctx := context.Background()
 
 	s.logger.Infow("PROVISION_GAME_STARTING", "game_id", gameID, "mode", mode, "session_id", sessionID)
@@ -119,10 +119,9 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 	payload := domain.EC2ProvisionRequest{
 		Profile: "gamelift",
 		Specs:   map[string]int{"cpu": 2, "ram": 4096},
-		
-		UserID:     game.UserID,
+		SessionID: sessionID,
+		UserID:     userID,
 		StorageARN: game.ARN,
-		SessionID:  sessionID,
 		Manifest: domain.GameManifest{
 			Name:        game.Name,
 			HeadlessBin: "server/hh.x86_64",

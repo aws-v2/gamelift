@@ -53,15 +53,14 @@ func NewNodeAgent(
 	}
 }
 
-func (a *NodeAgent) Start() {
+func (a *NodeAgent) Start(ctx context.Context) {
 	a.logger.Infow("NODE_AGENT_STARTING", "node_id", a.NodeID, "debug", a.debug, "env", a.appEnv)
 
 	// 1. Provision requests
 	provisionSubj := messaging.GetProvisionGameSubject()
 	a.logger.Infow("NODE_AGENT_SUBSCRIBING", "node_id", a.NodeID, "subject", provisionSubj)
-
 	_, err := a.natsClient.Subscribe(provisionSubj, func(msg *nats.Msg) {
-		a.handleProvision(msg)
+		a.handleProvision(msg,ctx)
 	})
 	if err != nil {
 		a.logger.Errorw("NODE_AGENT_SUBSCRIBE_FAILED", "node_id", a.NodeID, "subject", provisionSubj, "error", err)
@@ -74,7 +73,7 @@ func (a *NodeAgent) Start() {
 	a.logger.Infow("NODE_AGENT_SUBSCRIBING", "node_id", a.NodeID, "subject", uploadSubj)
 
 	_, err = a.natsClient.Subscribe(uploadSubj, func(msg *nats.Msg) {
-		a.handleFinishedUpload(msg)
+		a.handleFinishedUpload(msg,ctx)
 	})
 	if err != nil {
 		a.logger.Errorw("NODE_AGENT_SUBSCRIBE_FAILED", "node_id", a.NodeID, "subject", uploadSubj, "error", err)
@@ -85,7 +84,7 @@ func (a *NodeAgent) Start() {
 	a.logger.Infow("NODE_AGENT_STARTED", "node_id", a.NodeID)
 }
 
-func (a *NodeAgent) handleProvision(msg *nats.Msg) {
+func (a *NodeAgent) handleProvision(msg *nats.Msg,ctx context.Context) {
 	a.logger.Debugw("NODE_AGENT_PROVISION_MESSAGE_RECEIVED", "node_id", a.NodeID, "bytes", len(msg.Data))
 
 	var payload domain.ProvisionGameRequest
@@ -93,8 +92,7 @@ func (a *NodeAgent) handleProvision(msg *nats.Msg) {
 		a.logger.Errorw("NODE_AGENT_PROVISION_UNMARSHAL_FAILED", "node_id", a.NodeID, "bytes", len(msg.Data), "error", err)
 		return
 	}
-
-	if payload.TargetNode != a.NodeID {
+	if payload.TargetNode != "" && payload.TargetNode != a.NodeID {
 		a.logger.Debugw("NODE_AGENT_PROVISION_SKIPPED",
 			"node_id", a.NodeID,
 			"target_node", payload.TargetNode,
@@ -106,8 +104,10 @@ func (a *NodeAgent) handleProvision(msg *nats.Msg) {
 	a.logger.Infow("NODE_AGENT_PROVISION_ACCEPTED",
 		"node_id", a.NodeID,
 		"game_id", payload.GameID,
+		"user_id", payload.UserID,
 		"storage_arn", payload.StorageARN,
 		"streaming_mode", payload.StreamingMode,
+		"session_id", payload.SessionID,
 		"debug", a.debug,
 	)
 
@@ -118,7 +118,7 @@ func (a *NodeAgent) handleProvision(msg *nats.Msg) {
 	}
 }
 
-func (a *NodeAgent) handleFinishedUpload(msg *nats.Msg) {
+func (a *NodeAgent) handleFinishedUpload(msg *nats.Msg,ctx context.Context) {
 	a.logger.Debugw("NODE_AGENT_UPLOAD_MESSAGE_RECEIVED", "node_id", a.NodeID, "bytes", len(msg.Data))
 
 	var payload struct {
@@ -151,7 +151,7 @@ func (a *NodeAgent) handleFinishedUpload(msg *nats.Msg) {
 	}
 
 	a.logger.Infow("NODE_AGENT_UPLOAD_FORWARDING_TO_PROVISION", "node_id", a.NodeID, "game_id", payload.GameID)
-	a.handleProvision(&nats.Msg{Data: data})
+	a.handleProvision(&nats.Msg{Data: data},ctx)
 }
 
 func (a *NodeAgent) initializeGameDebug(gameID int, storageARN string, mode domain.StreamingMode) {

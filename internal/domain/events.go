@@ -43,6 +43,8 @@ type ProvisionGameRequest struct {
 	StorageARN    string        `json:"storage_arn"`
 	TargetNode    string        `json:"target_node"`
 	StreamingMode StreamingMode `json:"streaming_mode"`
+	SessionID string `json:"session_id"`
+	UserID string `json:"user_id"`
 }
 
 // GameReadyEvent is published when a game server is fully launched and listening.

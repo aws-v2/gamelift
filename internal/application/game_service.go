@@ -26,8 +26,8 @@ type GameService interface {
 	GetManifest(ctx context.Context, id string) (map[string]any, error)
 	GetDownloadURL(ctx context.Context, id string) (string, error)
 	InitUpload(ctx context.Context, req InitUploadRequest, log *zap.SugaredLogger) (*InitUploadResult, error)
-	PlayGame(ctx context.Context, req PlayGameRequest) (*PlayGameResult, error)
-	CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error)
+	PlayGame(ctx context.Context, req PlayGameRequest, sessionId string) (*PlayGameResult, error)
+	CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest, sessionID string) (*domain.GameSession, error)
 	GetSessionStatus(ctx context.Context, gameID string) (*domain.GameSession, error)
 	StreamSessionEvents(ctx context.Context, gameID string) (chan domain.GameSessionEvent, error)
 }
@@ -44,7 +44,17 @@ type CreateGameRequest struct {
 type UpdateGameRequest struct {
 	Name   string            `json:"name"`
 	Status domain.GameStatus `json:"status"`
+	Type      string          `json:"type"`
+	SessionID string          `json:"session_id"`
+	Data      json.RawMessage `json:"data,omitempty"`
+	Reason    string          `json:"reason,omitempty"`
+	VMIP   string `json:"vm_ip,omitempty"`
+	VMPort int    `json:"vm_port,omitempty"`
+	
 }
+
+
+
 
 type Manifest struct {
 	Name        string            `json:"name" binding:"required"`
@@ -298,7 +308,7 @@ func (s *gameService) InitUpload(
 	}, nil
 }
 
-func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest) (*PlayGameResult, error) {
+func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest, sessionId  string) (*PlayGameResult, error) {
 	game, err := s.repo.GetGame(ctx, req.GameID, s.log)
 	if err != nil {
 		return nil, err
@@ -315,7 +325,7 @@ func (s *gameService) PlayGame(ctx context.Context, req PlayGameRequest) (*PlayG
 		UserID:    req.UserID,
 		GameImage: "",
 	}
-	s.sessionService.CreateSession(ctx, initService)
+	s.sessionService.CreateSession(ctx, initService, sessionId)
 	if err := s.repo.CreateSession(ctx, session, s.log); err != nil {
 		return nil, fmt.Errorf("play game: create session: %w", err)
 	}
@@ -330,10 +340,10 @@ type createPresignDownloadURLResponse struct {
 	URL string `json:"url"`
 }
 
-func (s *gameService) CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest) (*domain.GameSession, error) {
+func (s *gameService) CreateSession(ctx context.Context, gameID string, req domain.CreateSessionRequest, sessionId string) (*domain.GameSession, error) {
 	// 1. Create session skeleton
 	session := &domain.GameSession{
-		ID:     uuid.New().String(),
+		ID:     sessionId,
 		GameID: gameID,
 		UserID: req.UserID,
 		Status: "pending",
@@ -389,7 +399,7 @@ func (s *gameService) CreateSession(ctx context.Context, gameID string, req doma
 		AssetURL: resp.URL, // FIXED naming
 	}
 
-	ses, err := s.sessionService.CreateSession(ctx, initService)
+	ses, err := s.sessionService.CreateSession(ctx, initService, sessionId)
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}

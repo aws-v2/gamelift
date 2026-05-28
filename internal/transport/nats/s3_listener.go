@@ -86,7 +86,8 @@ type InstanceMetadata struct {
 	AMIID        string `json:"ami_id"`
 }
 
-func (l *S3Listener) Start() {
+func (l *S3Listener) Start(ctx context.Context) {
+	// userId := ctx.("user_id").(string)
 	// ── S3 stored events ──────────────────────────────────────────────────────
 	s3Subj := messaging.GetS3StoredSubject()
 	l.logger.Infow("S3_LISTENER_STARTING", "subject", s3Subj, "env", l.appEnv)
@@ -115,6 +116,9 @@ func (l *S3Listener) Start() {
 }
 
 func (l *S3Listener) handleS3Stored(msg *nats.Msg) {
+
+
+	
 	l.logger.Debugw("S3_STORED_MESSAGE_RECEIVED", "bytes", len(msg.Data))
 
 	var payload domain.S3StoredEvent
