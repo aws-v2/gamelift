@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
 	"time"
 
 	"backend/internal/config"
@@ -31,6 +32,7 @@ type ProvisioningService struct {
 	natsPrefix string
 	assetsPath string
 	cfg *config.Config
+	err *domain.AppError
 }
 
 func NewProvisioningService(
@@ -82,9 +84,9 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 			"target_status", domain.GameStatusProvisioning,
 			"error", err,
 		)
-		return err
+		s.err.Code=10
+		return s.err
 	}
-
 	s.logger.Infow("PROVISION_GAME_STATUS_UPDATED", "game_id", gameID, "new_status", domain.GameStatusProvisioning)
 
 	// 3. Fetch file info from S3 service via NATS
@@ -140,6 +142,7 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 	}
 
 
+ 
 
 	
 	data, err := json.Marshal(payload)
@@ -172,10 +175,13 @@ func (s *ProvisioningService) ProvisionGame(gameID string, mode domain.Streaming
 		"session_id", sessionID,
 		"subject", subj,
 	)
-
+ 
+ 
 	return nil
 }
 
+
+ 
 func (s *ProvisioningService) getFileInfo(storageARN string) (*domain.FileInfo, error) {
 	s.logger.Infow("GET_FILE_INFO_REQUESTING", "storage_arn", storageARN)
 

@@ -12,10 +12,11 @@ import (
 
 	"backend/internal/config"
 )
-
+ 
 // RegisterWithEureka registers the service instance with Eureka server
 func RegisterWithEureka(cfg config.EurekaConfig, logger *zap.SugaredLogger) error {
 	instance := map[string]interface{}{
+
 		"instance": map[string]interface{}{
 			"instanceId": cfg.InstanceID,
 			"hostName":   cfg.HostName,
@@ -50,6 +51,8 @@ func RegisterWithEureka(cfg config.EurekaConfig, logger *zap.SugaredLogger) erro
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	// TODO: add some sort of security for services registering with Eureka
+	req.Header.Set("Authorization","Bearer ")
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
@@ -99,9 +102,10 @@ func SendHeartbeat(cfg config.EurekaConfig, logger *zap.SugaredLogger) {
 	}
 }
 
-// DeregisterFromEureka removes the service instance from Eureka
+
 func DeregisterFromEureka(cfg config.EurekaConfig, logger *zap.SugaredLogger) error {
 	url := fmt.Sprintf("%s/apps/%s/%s", cfg.ServerURL, cfg.AppName, cfg.InstanceID)
+
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create deregistration request: %w", err)

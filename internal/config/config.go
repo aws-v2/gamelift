@@ -47,6 +47,9 @@ type Config struct {
 	VMAssetPath string
 }
 
+ 
+
+
 func Load() *Config {
 	// Load .env if it exists
 	_ = godotenv.Load()
