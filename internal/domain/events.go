@@ -43,6 +43,8 @@ type ProvisionGameRequest struct {
 	StorageARN    string        `json:"storage_arn"`
 	TargetNode    string        `json:"target_node"`
 	StreamingMode StreamingMode `json:"streaming_mode"`
+	SessionID string `json:"session_id"`
+	UserID string `json:"user_id"`
 }
 
 // GameReadyEvent is published when a game server is fully launched and listening.
@@ -56,6 +58,7 @@ type GameReadyEvent struct {
 type GameSessionEvent struct {
 	AgentURL string `json:"agent_url,omitempty"`
 	VMID     string `json:"vm_id,omitempty"`
+	VMIP string `json:"vm_ip"`
 	Error    string `json:"error,omitempty"`
 }
 
@@ -65,6 +68,14 @@ type EventGameSessionError struct{
 	SessionID string `json:"session_id"`
 	Error string `json:"error"`
 	
+}
+
+// FileInfo represents metadata for an S3 asset.
+type FileInfo struct {
+	SHA256      string `json:"sha256"`
+	DownloadURL string `json:"download_url"`
+	Size        int64  `json:"size"`
+	Region      string `json:"region"`
 }
 
  

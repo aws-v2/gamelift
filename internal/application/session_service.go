@@ -21,8 +21,20 @@ type Service struct {
 	natsClient      *messaging.NatsClient
 }
 
-func NewSessionService(sessionRepo repository.SessionRepository, provisioningSvc *ProvisioningService, logger *zap.SugaredLogger, debug bool, natsClient *messaging.NatsClient) *Service {
-	return &Service{repo: sessionRepo, provisioningSvc: provisioningSvc, logger: logger, debug: debug, natsClient: natsClient}
+func NewSessionService(
+	sessionRepo repository.SessionRepository,
+	provisioningSvc *ProvisioningService,
+	logger *zap.SugaredLogger,
+	debug bool,
+	natsClient *messaging.NatsClient,
+) *Service {
+	return &Service{
+		repo:            sessionRepo,
+		provisioningSvc: provisioningSvc,
+		logger:          logger,
+		debug:           debug,
+		natsClient:      natsClient,
+	}
 }
 
 const (
@@ -32,26 +44,29 @@ const (
 	StatusFailed       = "failed"
 )
 
-func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionRequest) (*domain.GameSession, error) {
-	s.logger.Infow("the  gameid is : %s", req.GameID)
-	s.logger.Infow("the  userid is : %s", req.UserID)
+func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionRequest,sessionID string) (*domain.GameSession, error) {
+	s.logger.Infow("SESSION_CREATE", "game_id", req.GameID, "user_id", req.UserID)
+
+	// Reuse an existing active session if one exists
 	existing, err := s.repo.GetActiveSession(ctx, req.GameID, req.UserID)
 	if err == nil && existing != nil {
-		s.logger.Infow("reusing existing session", "session_id", existing.ID, "status", existing.Status)
+		s.logger.Infow("SESSION_CREATE_REUSING_EXISTING",
+			"session_id", existing.ID,
+			"game_id", req.GameID,
+			"user_id", req.UserID,
+			"status", existing.Status,
+		)
 		return existing, nil
 	}
 
 	token, err := generateToken()
 	if err != nil {
+		s.logger.Errorw("SESSION_CREATE_TOKEN_FAILED", "game_id", req.GameID, "user_id", req.UserID, "error", err)
 		return nil, fmt.Errorf("generate token: %w", err)
 	}
 
-	s.logger.Infow("the token is : ")
-	s.logger.Infow(token)
-	s.logger.Infow("the token is : ")
-
 	session := &domain.GameSession{
-		ID:        generateID(),
+		ID:        sessionID,
 		GameID:    req.GameID,
 		UserID:    req.UserID,
 		Status:    StatusProvisioning,
@@ -60,94 +75,101 @@ func (s *Service) CreateSession(ctx context.Context, req domain.CreateSessionReq
 		ExpiresAt: time.Now().Add(2 * time.Hour),
 	}
 
-	fmt.Printf("thisi si theor sessionid %s\n",session.ID)
-
-	s.logger.Infow("the session is : %s", session)
+	s.logger.Infow("SESSION_CREATE_PERSISTING",
+		"session_id", session.ID,
+		"game_id", session.GameID,
+		"user_id", session.UserID,
+		"expires_at", session.ExpiresAt,
+	)
 
 	if err := s.repo.Create(ctx, session); err != nil {
+		s.logger.Errorw("SESSION_CREATE_PERSIST_FAILED",
+			"session_id", session.ID,
+			"game_id", session.GameID,
+			"user_id", session.UserID,
+			"error", err,
+		)
 		return nil, fmt.Errorf("persist session: %w", err)
 	}
-	s.logger.Infow("the session is : %s", session.Token)
-	// TODO: remove once real provisioning flow is wired up
 
-	if s.debug {
-	s.logger.Infow("------------------s------")
-		
-		// session.Status = StatusReady
-		// session.AgentWSURL = "ws://localhost:9030/game"
-		// if err := s.repo.MarkReady(ctx, session.ID, session.AgentWSURL, "local"); err != nil {
-		// 	s.logger.Warnw("failed to persist debug ready status", "session_id", session.ID, "error", err)
-		// }
-		// s.logger.Infow("debug mode: session marked ready with local agent", "session_id", session.ID)
-		// return session, nil
-	}else{
-	s.logger.Infow("----------------f--------")
+	s.logger.Infow("SESSION_CREATE_PERSISTED", "session_id", session.ID, "game_id", session.GameID)
 
-		gameIDInt :=session.GameID
+	// if s.debug {
+	// 	s.logger.Warnw("SESSION_CREATE_DEBUG_MODE",
+	// 		"session_id", session.ID,
+	// 		"note", "provisioning skipped in debug mode",
+	// 	)
+	// 	return session, nil
+	// }
 
-		if err != nil {
-	s.logger.Infow("-----------d-----f--------", "error", err)
+	s.logger.Infow("SESSION_CREATE_PROVISIONING",
+		"session_id", session.ID,
+		"game_id", session.GameID,
+	)
 
-			_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
-			return nil, fmt.Errorf("invalid game_id: %w", err)
-		}
-	fmt.Printf("------------k----f-------original sessio id - %s",session.ID)
-
-		s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState, session.ID)
-		// s.natsClient.Request(messaging.GetProvisionGameSubject(), []byte(session.ID), 10*time.Second)
-	}
-
-	gameIDInt := req.GameID
-	if err != nil {
-		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
-		return nil, fmt.Errorf("invalid game_id: %w", err)
-	}
-
-	if err := s.provisioningSvc.ProvisionGame(gameIDInt, domain.StreamingModeState,session.ID); err != nil {
+	if err := s.provisioningSvc.ProvisionGame(session.GameID, domain.StreamingModeState, session.ID,req.AssetURL,req.Sha256, session.UserID); err != nil {
+		s.logger.Errorw("SESSION_CREATE_PROVISION_FAILED",
+			"session_id", session.ID,
+			"game_id", session.GameID,
+			"error", err,
+		)
 		_ = s.repo.UpdateStatus(ctx, session.ID, StatusFailed)
 		return nil, fmt.Errorf("provision game: %w", err)
 	}
 
-	s.logger.Infow("session created, vm provisioning started",
+	s.logger.Infow("SESSION_CREATE_SUCCESS",
 		"session_id", session.ID,
-		"game_id", req.GameID,
+		"game_id", session.GameID,
+		"user_id", session.UserID,
+		"status", session.Status,
 	)
-
-
-	fmt.Printf("session check here --ff> s")
-	fmt.Printf("session check here --ff> s")
-	fmt.Printf("session check here --ff> %v", session)
-	fmt.Printf("session check here --ff> s")
-	fmt.Printf("session check here --ff> %s",session.ID)
-	fmt.Printf("session check here --ff> s")
 
 	return session, nil
 }
 
 func (s *Service) GetActiveSession(ctx context.Context, gameID, userID string) (*domain.GameSession, error) {
+	s.logger.Infow("SESSION_GET_ACTIVE", "game_id", gameID, "user_id", userID)
+
 	session, err := s.repo.GetActiveSession(ctx, gameID, userID)
 	if err != nil {
+		s.logger.Warnw("SESSION_GET_ACTIVE_NOT_FOUND", "game_id", gameID, "user_id", userID, "error", err)
 		return nil, fmt.Errorf("get session: %w", err)
 	}
+
+	s.logger.Infow("SESSION_GET_ACTIVE_FOUND", "session_id", session.ID, "game_id", gameID, "status", session.Status)
 	return session, nil
 }
 
 func (s *Service) MarkReady(ctx context.Context, sessionID, agentWSURL, nodeID string) error {
+	s.logger.Infow("SESSION_MARK_READY", "session_id", sessionID, "node_id", nodeID, "agent_ws_url", agentWSURL)
+
 	if err := s.repo.MarkReady(ctx, sessionID, agentWSURL, nodeID); err != nil {
+		s.logger.Errorw("SESSION_MARK_READY_FAILED",
+			"session_id", sessionID,
+			"node_id", nodeID,
+			"agent_ws_url", agentWSURL,
+			"error", err,
+		)
 		return fmt.Errorf("mark ready: %w", err)
 	}
-	s.logger.Infow("session marked ready", "session_id", sessionID, "ws_url", agentWSURL)
+
+	s.logger.Infow("SESSION_MARK_READY_SUCCESS", "session_id", sessionID, "node_id", nodeID, "agent_ws_url", agentWSURL)
 	return nil
 }
 
 func (s *Service) CloseSession(ctx context.Context, sessionID string) error {
+	s.logger.Infow("SESSION_CLOSE", "session_id", sessionID)
+
 	if err := s.repo.UpdateStatus(ctx, sessionID, StatusClosed); err != nil {
+		s.logger.Errorw("SESSION_CLOSE_FAILED", "session_id", sessionID, "error", err)
 		return fmt.Errorf("close session: %w", err)
 	}
+
+	s.logger.Infow("SESSION_CLOSE_SUCCESS", "session_id", sessionID)
 	return nil
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 func generateToken() (string, error) {
 	b := make([]byte, 32)
@@ -155,10 +177,4 @@ func generateToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
-}
-
-func generateID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
 }

@@ -10,8 +10,7 @@ const (
 	GameStatusProvisioning GameStatus = "provisioning"
 	GameStatusActive       GameStatus = "active"
 	GameStatusFailed       GameStatus = "failed"
-	GameStatusInactive GameStatus = "inactive"
-
+	GameStatusInactive     GameStatus = "inactive"
 )
 
 type StreamingMode string
@@ -22,19 +21,19 @@ const (
 )
 
 type Game struct {
-	
 	ID             string        `json:"id" gorm:"primaryKey"`
-	Name           string     `json:"game_name" gorm:"not null"`
-	FolderLocation string     `json:"game_folder_location"`
-	UserID         string     `json:"user_id"`
-	ARN            string     `json:"arn" gorm:"uniqueIndex"`
+	Name           string        `json:"game_name" gorm:"not null"`
+	FolderLocation string        `json:"game_folder_location"`
+	UserID         string        `json:"user_id"`
+	ARN            string        `json:"arn" gorm:"uniqueIndex"`
 	Status         GameStatus    `json:"status"`
 	StreamingMode  StreamingMode `json:"streaming_mode"`
 	StorageARN     string        `json:"storage_arn,omitempty"`
-	Manifest       string     `json:"manifest,omitempty" gorm:"type:text"`
-CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	}
+	Manifest       string        `json:"manifest,omitempty" gorm:"type:text"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	Sha256 string `json:"sha256"`
+}
 
 type SyncNode struct {
 	Name string `json:"name"`
@@ -42,37 +41,40 @@ type SyncNode struct {
 }
 
 type GameManifest struct {
-    ID          string     `json:"id"           gorm:"primaryKey"`
-    GameID      string     `json:"game_id"      gorm:"index"`
-    Name        string     `json:"name"`
-    Version     string     `json:"version"`
-    HeadlessBin string     `json:"headless_bin"`
-    MainScene   string     `json:"main_scene"`
-    PlayerNode  string     `json:"player_node"`
-    SyncNodes   []SyncNode `json:"sync_nodes"   gorm:"serializer:json"`
-    CreatedAt   time.Time  `json:"created_at"`
-    UpdatedAt   time.Time  `json:"updated_at"`
+	ID          string     `json:"id"           gorm:"primaryKey"`
+	GameID      string     `json:"game_id"      gorm:"index"`
+	Name        string     `json:"name"`
+	Version     string     `json:"version"`
+	HeadlessBin string     `json:"headless_bin"`
+	MainScene   string     `json:"main_scene"`
+	PlayerNode  string     `json:"player_node"`
+	SyncNodes   []SyncNode `json:"sync_nodes"   gorm:"serializer:json"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	Parameters map[string]string `json:"parameters"`
+
 }
 type CreateSessionRequest struct {
 	GameID    string `json:"game_id" binding:"required"`
 	GameImage string `json:"game_image" binding:"required"`
 	UserID    string `json:"user_id"`
+	AssetURL string `json:"asset_url"`
+	Sha256 string `json:"sha256"`
+
 }
 
 type GameSession struct {
-	ID          string    `db:"id"`
-	GameID      string    `db:"game_id"`
-	UserID      string    `db:"user_id"`
-	Status      string    `db:"status"`       // provisioning | ready | closed
-	AgentWSURL  string    `db:"agent_ws_url"` // ws://agent-ip:port/game — empty until ready
-	Token       string    `db:"token"`        // short-lived JWT or UUID for agent auth
-	NodeID      string    `db:"node_id"`      // which bare metal node the VM landed on
-	CreatedAt   time.Time `db:"created_at"`
-	ExpiresAt   time.Time `db:"expires_at"`
+	ID         string    `db:"id"`
+	GameID     string    `db:"game_id"`
+	UserID     string    `db:"user_id"`
+	Status     string    `db:"status"`       // provisioning | ready | closed
+	AgentWSURL string    `db:"agent_ws_url"` // ws://agent-ip:port/game — empty until ready
+	Token      string    `db:"token"`        // short-lived JWT or UUID for agent auth
+	NodeID     string    `db:"node_id"`      // which bare metal node the VM landed on
+	CreatedAt  time.Time `db:"created_at"`
+	ExpiresAt  time.Time `db:"expires_at"`
 }
 
- 
- 
 type Session struct {
 	ID        string    `gorm:"primaryKey"`
 	GameID    string    `gorm:"column:game_id"`

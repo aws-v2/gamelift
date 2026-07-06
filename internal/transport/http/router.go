@@ -4,7 +4,6 @@ import (
 	"backend/internal/application"
 	"backend/internal/config"
 	"backend/internal/infrastructure/messaging"
-	"backend/internal/infrastructure/repository"
 	"backend/internal/infrastructure/storage"
 	"backend/internal/transport/http/handlers"
 	"backend/internal/transport/middleware"
@@ -17,7 +16,6 @@ import (
 )
 
 func NewRouter(
-	authSvc repository.AuthService,
 	gameHandler *handlers.GameHandler,
 	hub *websocket.Hub,
 	natsClient *messaging.NatsClient,
@@ -28,31 +26,26 @@ func NewRouter(
 ) *gin.Engine {
 	r := gin.Default()
 
-	authHandler := handlers.NewAuthHandler(authSvc, logger)
 	wsHandler := websocket.NewWebSocketHandler(hub)
 	webrtcHandler := handlers.NewWebRTCSignalingHandler(logger)
-	docsSvc := application.NewDocsService(cfg.DocsPath)
-	docsHandler := handlers.NewDocsHandler(docsSvc)
+	docsSvc := application.NewDocsService(cfg.DocsPath, logger)
+	docsHandler := handlers.NewDocsHandler(docsSvc, logger)
 
 	base := r.Group("/api/v1/gamelift")
-	base.Use(middleware.AuthMiddleware())
+	base.Use(middleware.AuthMiddleware(logger))
 
 	// ── 1. Docs ───────────────────────────────────────────────────────────────
 
 	{
 		sse := base.Group("/fleet")
 
-		sse.GET("/instances/:instanceId/events", gameHandler.StreamSessionEvents)
+		sse.GET("/instances/:sessionId/events", gameHandler.StreamSessionEvents)
 
 	}
 	{
-		pub := base.Group("/docs")
-		pub.GET("", docsHandler.GetPublicManifest)
-		pub.GET("/:slug", docsHandler.GetPublicDoc)
-
-		priv := r.Group("/api/v1/internal/docs")
-		priv.GET("", docsHandler.GetInternalManifest)
-		priv.GET("/:slug", docsHandler.GetInternalDoc)
+		docs := base.Group("/docs")
+		docs.GET("", docsHandler.GetManifests)
+		docs.GET("/:slug", docsHandler.GetDoc)
 	}
 
 	// ── 2. WebSockets + WebRTC ────────────────────────────────────────────────
@@ -64,18 +57,19 @@ func NewRouter(
 
 	// ── 3. Sessions ───────────────────────────────────────────────────────────
 	{
-
+// fix this 
 		sessions := base.Group("/games/:id/session")
 		sessions.GET("/events", gameHandler.StreamSessionEvents)
 		sessions.POST("", gameHandler.CreateSession)
 		sessions.GET("/status", gameHandler.GetSessionStatus)
+		sessions.POST("/status", gameHandler.UpdateGame)
 
 		base.POST("/games/play", gameHandler.PlayGame)
 	}
 
 	// ── 4. Games ──────────────────────────────────────────────────────────────
 	{
-		base.POST("/login", authHandler.Login)
+		// base.POST("/login", authHandler.Login)
 
 		games := base.Group("/games")
 		games.GET("", gameHandler.ListGames)

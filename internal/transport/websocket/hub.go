@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 
@@ -15,8 +14,9 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
-	conn *websocket.Conn
-	send chan []byte
+	conn       *websocket.Conn
+	send       chan []byte
+	remoteAddr string
 }
 
 type Hub struct {
@@ -43,6 +43,8 @@ func (h *Hub) Broadcast(message []byte) {
 }
 
 func (h *Hub) Run() {
+	h.logger.Infow("WS_HUB_STARTED")
+
 	for {
 		select {
 		case client := <-h.register:
@@ -51,26 +53,47 @@ func (h *Hub) Run() {
 			count := len(h.clients)
 			h.mu.Unlock()
 
-			h.logger.Infow("New client connected", "total_clients", count)
+			h.logger.Infow("WS_HUB_CLIENT_REGISTERED",
+				"remote_addr", client.remoteAddr,
+				"total_clients", count,
+			)
+
 		case client := <-h.unregister:
 			h.mu.Lock()
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
-				h.logger.Infow("Client disconnected", "total_clients", len(h.clients))
+				count := len(h.clients)
+				h.mu.Unlock()
+
+				h.logger.Infow("WS_HUB_CLIENT_UNREGISTERED",
+					"remote_addr", client.remoteAddr,
+					"total_clients", count,
+				)
+			} else {
+				h.mu.Unlock()
 			}
-			h.mu.Unlock()
+
 		case message := <-h.broadcast:
 			h.mu.Lock()
+			total := len(h.clients)
+			dropped := 0
 			for client := range h.clients {
 				select {
 				case client.send <- message:
 				default:
 					close(client.send)
 					delete(h.clients, client)
+					dropped++
 				}
 			}
 			h.mu.Unlock()
+
+			h.logger.Debugw("WS_HUB_BROADCAST",
+				"bytes", len(message),
+				"recipients", total-dropped,
+				"dropped_clients", dropped,
+			)
 		}
 	}
 }
@@ -84,15 +107,20 @@ func NewWebSocketHandler(hub *Hub) *WebSocketHandler {
 }
 
 func (h *WebSocketHandler) Handle(c *gin.Context) {
-	h.hub.logger.Infow("WebSocket connection requested", "client", fmt.Sprintf("%p", c))
+	remoteAddr := c.Request.RemoteAddr
+
+	h.hub.logger.Infow("WS_UPGRADE_REQUESTED", "remote_addr", remoteAddr, "path", c.FullPath())
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		h.hub.logger.Errorw("WebSocket upgrade failed", "error", err)
+		h.hub.logger.Errorw("WS_UPGRADE_FAILED", "remote_addr", remoteAddr, "error", err)
 		return
 	}
 
-	client := &Client{conn: conn, send: make(chan []byte, 256)}
+	client := &Client{conn: conn, send: make(chan []byte, 256), remoteAddr: remoteAddr}
 	h.hub.register <- client
+
+	h.hub.logger.Infow("WS_CLIENT_CONNECTED", "remote_addr", remoteAddr)
 
 	go h.writePump(client)
 	h.readPump(client)
@@ -100,6 +128,7 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
 
 func (h *WebSocketHandler) readPump(c *Client) {
 	defer func() {
+		h.hub.logger.Infow("WS_READ_PUMP_CLOSING", "remote_addr", c.remoteAddr)
 		h.hub.unregister <- c
 		c.conn.Close()
 	}()
@@ -107,31 +136,44 @@ func (h *WebSocketHandler) readPump(c *Client) {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			h.hub.logger.Debugw("Error reading from websocket", "client", fmt.Sprintf("%p", c), "error", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+				h.hub.logger.Errorw("WS_READ_ERROR", "remote_addr", c.remoteAddr, "error", err)
+			} else {
+				h.hub.logger.Infow("WS_CLIENT_DISCONNECTED", "remote_addr", c.remoteAddr)
+			}
 			break
 		}
-		
-		// Log every message received (Keyboard, Mouse, or Godot State)
-		h.hub.logger.Debugw("Incoming message", "client", fmt.Sprintf("%p", c), "msg", string(message))
-		
-		// Log the data being sent to the hub for transparency
-		h.hub.logger.Debugw("Broadcasting message", "client", fmt.Sprintf("%p", c), "msg", string(message))
+
+		h.hub.logger.Debugw("WS_MESSAGE_RECEIVED",
+			"remote_addr", c.remoteAddr,
+			"bytes", len(message),
+		)
+
 		h.hub.broadcast <- message
 	}
 }
 
 func (h *WebSocketHandler) writePump(c *Client) {
 	defer func() {
+		h.hub.logger.Infow("WS_WRITE_PUMP_CLOSING", "remote_addr", c.remoteAddr)
 		c.conn.Close()
 	}()
+
 	for {
 		select {
 		case message, ok := <-c.send:
 			if !ok {
+				h.hub.logger.Infow("WS_SEND_CHANNEL_CLOSED", "remote_addr", c.remoteAddr)
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			c.conn.WriteMessage(websocket.TextMessage, message)
+
+			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				h.hub.logger.Errorw("WS_WRITE_FAILED", "remote_addr", c.remoteAddr, "bytes", len(message), "error", err)
+				return
+			}
+
+			h.hub.logger.Debugw("WS_MESSAGE_SENT", "remote_addr", c.remoteAddr, "bytes", len(message))
 		}
 	}
 }

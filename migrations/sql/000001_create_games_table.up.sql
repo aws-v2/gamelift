@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS games;
 
 CREATE TABLE games (
-    id SERIAL PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     vm_id TEXT,
     user_id TEXT NOT NULL,
@@ -11,6 +11,7 @@ CREATE TABLE games (
     streaming_mode TEXT,
     manifest TEXT,
     storage_arn TEXT,
+    sha256 TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE

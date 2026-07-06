@@ -312,3 +312,17 @@ WARNING: Unmatched cancel notification for request id 245
 2026.05.09 17:36:36 INFO  Memory monitor stopped
 2026.05.09 17:36:36 INFO  shutting down Metals
 2026.05.09 17:36:36 INFO  Exiting server
+2026.06.29 09:34:35 INFO  Started: Metals version 1.6.7 in folders '/home/martin/Documents/aws-v4/dev/gamelift_banckend' for client Visual Studio Code 1.121.0.
+2026.06.29 09:34:35 INFO  Memory monitor started
+2026.06.29 09:34:38 WARN  Using H2 2.4.240 which is newer than the version Flyway has been verified with. The latest verified version of H2 is 2.3.232.
+2026.06.29 09:34:40 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.06.29 09:34:40 WARN  no build tool detected in workspace '/home/martin/Documents/aws-v4/dev/gamelift_banckend'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
+2026.06.29 09:34:40 WARN  Build server is not auto-connectable.
+2026.06.29 09:34:40 WARN  no build target for: /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java
+2026.06.29 09:34:41 INFO  no build target found for /home/martin/Documents/aws-v4/dev/gamelift_banckend/ApiKey.java. Using fallback presentation compiler.
+2026.06.29 09:34:45 INFO  time: code lens generation in 4.04s
+2026.06.29 09:34:45 INFO  time: code lens generation in 4.15s
+2026.06.29 10:03:12 INFO  Shutting down server
+2026.06.29 10:03:12 INFO  Memory monitor stopped
+2026.06.29 10:03:12 INFO  shutting down Metals
+2026.06.29 10:03:12 INFO  Exiting server

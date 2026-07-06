@@ -42,27 +42,33 @@ type Config struct {
 		SecretKey string
 		UseSSL    bool
 	}
-	DocsPath string
-	NatsPrefix string
+	DocsPath    string
+	NatsPrefix  string
+	VMAssetPath string
 }
+
+ 
+
 
 func Load() *Config {
 	// Load .env if it exists
 	_ = godotenv.Load()
 	port := getEnv("SERVER_PORT", ":8091")
 	if !strings.HasPrefix(port, ":") {
-	port = ":" + port
-}
-	
+		port = ":" + port
+	}
+	appEnv := getEnv("APP_ENV", "dev")
 
 	cfg := &Config{
-		AppEnv:        getEnv("APP_ENV", "dev"),
+		VMAssetPath: getEnv("ASSET_PATH", "/var/lib/libvirt/game-files"),
+		// AppEnv:        getEnv("APP_ENV", "dev"),
 		ServerPort:    port,
 		NatsURL:       getEnv("NATS_URL", "nats://nats-prod:4222"),
 		NatsUser:      getEnv("NATS_USER", "auth-server"),
 		NatsPassword:  getEnv("NATS_PASSWORD", "auth-secret"),
 		PublicURL:     getEnv("PUBLIC_URL", "http://localhost:8091"),
-		Debug:         getEnv("DEBUG_MODE", "false") == "false",
+		AppEnv:        appEnv,
+		Debug:         appEnv == "dev",
 		GodotPath:     getEnv("GODOT_PATH", "/usr/local/bin/godot"),
 		JWTExpiration: time.Duration(getEnvInt("JWT_EXPIRATION_MS", 86400000)) * time.Millisecond,
 		DB: database.Config{
@@ -72,8 +78,8 @@ func Load() *Config {
 			Password: getEnv("DB_PASSWORD", "postgres"),
 			Name:     getEnv("DB_NAME", "gamelift"),
 		},
-		DocsPath: getEnv("DOCS_PATH", "./docs"),
-		NatsPrefix: getEnv("NATS_PREFIX", "dev.v1"),	
+		DocsPath:   getEnv("DOCS_PATH", "./docs"),
+		NatsPrefix: getEnv("NATS_PREFIX", "dev.v1"),
 	}
 
 	rawSecret := "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
@@ -95,7 +101,6 @@ func Load() *Config {
 		InstanceID:        getEnv("EUREKA_INSTANCE_ID", "localhost:8091"),
 		HeartbeatInterval: 30 * time.Second,
 	}
- 
 
 	cfg.S3.Endpoint = getEnv("S3_ENDPOINT", "localhost:9000")
 	cfg.S3.AccessKey = getEnv("S3_ACCESS_KEY", "minioadmin")
@@ -121,4 +126,3 @@ func getEnvInt(key string, fallback int) int {
 	}
 	return fallback
 }
-

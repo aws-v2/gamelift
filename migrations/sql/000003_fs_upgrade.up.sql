@@ -1,0 +1,14 @@
+ALTER TABLE games
+ADD COLUMN IF NOT EXISTS object_key TEXT;
+
+ALTER TABLE games
+ADD COLUMN IF NOT EXISTS upload_session_id TEXT;
+
+ALTER TABLE games
+ADD COLUMN IF NOT EXISTS upload_status TEXT DEFAULT 'pending';
+
+ALTER TABLE games
+ADD COLUMN IF NOT EXISTS version TEXT;
+
+
+
