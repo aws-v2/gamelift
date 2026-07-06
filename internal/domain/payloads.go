@@ -32,3 +32,6 @@ type PlayGameResponse struct {
 	GameID int    `json:"game_id"`
 	Status string `json:"status"`
 }
+
+
+
