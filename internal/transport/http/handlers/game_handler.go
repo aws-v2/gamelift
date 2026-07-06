@@ -101,6 +101,7 @@ func (h *GameHandler) UpdateGame(c *gin.Context) {
 	}
 
 	h.log.Infow("HANDLER_UPDATE_GAME", "game_id", id)
+	h.log.Infow("HANDLER_UPDATE_GAME", "game_id", id)
 
 	game, err := h.svc.UpdateGame(c.Request.Context(), id.String(), req)
 	if err != nil {
